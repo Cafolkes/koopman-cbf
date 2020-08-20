@@ -27,7 +27,7 @@ func_dict = @(x) dubin_D(x(1),x(2),x(3),x(4));      % Function dictionary, retur
 n_samples = 100;                                    % Number of initial conditions to sample for training
 
 %Collision avoidance experiment parameters:
-global T_exp alpha r obs
+global T_exp alpha 
 x0 = [0;0;vm;0];                                    % Initial condition for experiment
 x_des = [10;0;0;0];                                 % Desired state for legacy controller
 mpc_horizon = 20;                                   % Time horizon of legacy controller
@@ -37,10 +37,11 @@ T_exp = 10;                                         % Experiment length
 alpha = 1;                                          % CBF strengthening parameter
 r = 1;                                              % Radius of circular obstacle
 obs = [5;0];                                        % Center of circular obstacle
+barrier_func = @(x) round_obs(x,obs,r);             % Barrier function
 
 %% Learn approximated discrete-time Koopman operator:
 
-X_train = collect_data(sim_dynamics, sim_process, con1, stop_crit1, n_samples);  %TODO: Restructure code such that it resembles more classical simulation with dynamical system + backup controller simulated forward from initial conditions
+X_train = collect_data(sim_dynamics, sim_process, con1, stop_crit1, n_samples); 
 [K, C] = edmd(X_train, func_dict);
 K_pows = precalc_matrix_powers(N_max,K);
 
@@ -60,6 +61,6 @@ K_pows = precalc_matrix_powers(N_max,K);
 
 %% Evaluate Koopman based CBF safety filter:
 
-supervisory_controller = @(x,u0,N) koopman_qp_cbf(x, u0, N, affine_dynamics, func_dict, K_pows, C, options); %TODO: Make sure dynamics etc are modular, possible to make barrier condition modular?
-[x_rec, u_rec, u0_rec] = run_experiment(x0, affine_dynamics, legacy_controller, supervisory_controller); %TODO: Make sure dynamics etc are modular, possible to make barrier condition modular?
+supervisory_controller = @(x,u0,N) koopman_qp_cbf(x, u0, N, affine_dynamics, barrier_func, func_dict, K_pows, C, options); 
+[x_rec, u_rec, u0_rec] = run_experiment(x0, sim_dynamics, sim_process, legacy_controller, supervisory_controller); 
 plot_experiment(x_rec, u_rec, u0_rec, func_dict, K_pows, C);

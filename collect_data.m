@@ -25,10 +25,10 @@ function [tt,xx] = simulate_sys(x, sim_dynamics, sim_process, controller, stop_c
         u = controller(x);
         xdot = @(t,x) sim_dynamics(x,u);
         [~, x_tmp] = ode45(xdot,[t,t+ts],x);
-        x = x_tmp(end,:);
+        x = x_tmp(end,:)';
         x = sim_process(x, ts);
         t = t + ts;
         tt = [tt;t];
-        xx = [xx;x];
+        xx = [xx;x'];
     end
 end
