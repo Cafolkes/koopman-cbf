@@ -58,6 +58,6 @@ K_pows = precalc_matrix_powers(N_max,K);
 
 %% Evaluate Koopman based CBF safety filter:
 
-supervisory_controller = @(x,u0,N) koopman_qp_cbf(x, u0, N, system_dynamics, func_dict, K_pows, C, options);
-[x_rec, u_rec, u0_rec] = run_experiment(x0, system_dynamics, legacy_controller, supervisory_controller);
+supervisory_controller = @(x,u0,N) koopman_qp_cbf(x, u0, N, system_dynamics, func_dict, K_pows, C, options); %TODO: Make sure dynamics etc are modular, possible to make barrier condition modular?
+[x_rec, u_rec, u0_rec] = run_experiment(x0, system_dynamics, legacy_controller, supervisory_controller); %TODO: Make sure dynamics etc are modular, possible to make barrier condition modular?
 plot_experiment(x_rec, u_rec, u0_rec, func_dict, K_pows, C);
