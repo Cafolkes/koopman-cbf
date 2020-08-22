@@ -45,11 +45,14 @@ X_train = collect_data(sim_dynamics, sim_process, con1, stop_crit1, n_samples);
 [K, C] = edmd(X_train, func_dict);
 K_pows = precalc_matrix_powers(N_max,K);
 
-L = calc_lipschitz(4,2, affine_dynamics, con1);
+ 
+L = calc_lipschitz(4,2, affine_dynamics, con1); 
 e_max = calc_max_residual(X_train, func_dict, K, C);
-%error_bound = @(k,x)
-%koopman_error_bound(t,x,L,e_max,tt,K_pows,C,func_dict) (TODO)
-%Calculate error bound (TODO)
+tt = 0:Ts:Ts*N_max;
+
+error_bound = @(x) koopman_error_bound(x,X_train,L,e_max,tt,K_pows,C,func_dict);
+err_bnd = error_bound(ones(4,1)); %TODO: Remove, for debug only
+
 %Plot results (TODO)
     %-Plot data distribution
     %-Plot training prediction error and residuals
