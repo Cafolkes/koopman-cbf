@@ -45,6 +45,8 @@ X_train = collect_data(sim_dynamics, sim_process, con1, stop_crit1, n_samples);
 [K, C] = edmd(X_train, func_dict);
 K_pows = precalc_matrix_powers(N_max,K);
 
+% TODO: Process data so that angle always within [0,2pi]
+% TODO:     Improve Lipschitz constant estimation
  
 L = calc_lipschitz(4,2, affine_dynamics, con1); 
 e_max = calc_max_residual(X_train, func_dict, K, C);
@@ -53,12 +55,10 @@ error_bound = @(x) koopman_error_bound(x,X_train,L,e_max,tt,K_pows,C,func_dict);
 
 plot_training_fit(X_train, K_pows, C, func_dict, error_bound);
 
-%% Evaluate Koopman approximation on test data (TODO):
+%% Evaluate Koopman approximation on test data:
 
-%Collect test data from randomly selected initial conditions
-%Evaluate prediction error
-%Evaluate error bounds around predicition and compare to test data
-%Plot results
+X_test = collect_data(sim_dynamics, sim_process, con1, stop_crit1, n_samples); 
+plot_test_fit(X_train, X_test, K_pows, C, func_dict, error_bound);
 
 %% Evaluate Koopman based CBF safety filter:
 
