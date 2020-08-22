@@ -24,7 +24,7 @@ stop_crit1 = @(t,x)(abs(x(3))<=0);                  % Stop if velocity is zero
 %Koopman learning parameters:
 dubin_dictionary;                                   % Generate dictionary for Dubin's car system
 func_dict = @(x) dubin_D(x(1),x(2),x(3),x(4));      % Function dictionary, returns [D,J] = [dictionary, jacobian of dictionary]
-n_samples = 50;                                     % Number of initial conditions to sample for training
+n_samples = 500;                                     % Number of initial conditions to sample for training
 
 %Collision avoidance experiment parameters:
 global T_exp alpha obs r
@@ -45,13 +45,13 @@ X_train = collect_data(sim_dynamics, sim_process, con1, stop_crit1, n_samples);
 [K, C] = edmd(X_train, func_dict);
 K_pows = precalc_matrix_powers(N_max,K);
 
-% TODO: Process data so that angle always within [0,2pi]
 % TODO:     Improve Lipschitz constant estimation
- 
 L = calc_lipschitz(4,2, affine_dynamics, con1); 
 e_max = calc_max_residual(X_train, func_dict, K, C);
 tt = 0:Ts:Ts*N_max;
 error_bound = @(x) koopman_error_bound(x,X_train,L,e_max,tt,K_pows,C,func_dict);
+% TODO: Try to utilize the fact that the dynamics are position invariant to
+% get tighter bound.
 
 plot_training_fit(X_train, K_pows, C, func_dict, error_bound);
 

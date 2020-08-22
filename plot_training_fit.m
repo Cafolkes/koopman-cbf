@@ -1,15 +1,15 @@
 function plot_training_fit(X, K_pows, C, func_dict, error_bound)
-    global Ts
+    global Ts x_bdry
     
     %Calculate fit:
     for i = 1 : length(X)
         x0 = X{i}(1,:);
         [z0,~] = func_dict(x0);
-        z = [x0'];
-        for j = 1 : length(X{i})-1
-            z = [z C*K_pows{j}*z0];
+        x_hat = [x0'];
+        for j = 1 : size(X{i},1)-1
+            x_hat = [x_hat C*K_pows{j}*z0];
         end
-        X_hat{i} = z;
+        X_hat{i} = x_hat';
     end
         
     fig = figure(1);
@@ -22,10 +22,13 @@ function plot_training_fit(X, K_pows, C, func_dict, error_bound)
     ind_y = 4;
     hold on
     for i = 1 : length(X_hat)
-        scatter(X{i}(ind_x,:),X{i}(ind_y,:))
+        X{i}(:,4) = wrapTo2Pi(X{i}(:,4));
+        scatter(X{i}(:,ind_x),X{i}(:,ind_y))
     end
     xlabel('Velocity ($x_3$)');
     ylabel('Angle ($x_4$)');
+    xlim([0 x_bdry(ind_x,2)]);
+    ylim([x_bdry(ind_y,1) x_bdry(ind_y,2)]);
     title('Training data (states)')
     
     
@@ -40,8 +43,10 @@ function plot_training_fit(X, K_pows, C, func_dict, error_bound)
     tt = 0 : Ts : Ts*(length(X{i})-1);
     plot(tt, bound, '--r', 'lineWidth',2)
     for i = 1 : length(X_hat)
-        tt = 0 : Ts : Ts*(length(X{i})-1);
-        plot(tt, vecnorm(X{i}-X_hat{i}',2,2))
+        tt = 0 : Ts : Ts*(size(X{i},1)-1);
+        diff = X{i}-X_hat{i};
+        diff(:,4) = angdiff(X{i}(:,4),X_hat{i}(:,4));
+        plot(tt, vecnorm(diff,2,2))
     end
     xlabel('Time (sec)');
     ylabel('Prediction error $||x-\hat{x}||$');
@@ -50,6 +55,5 @@ function plot_training_fit(X, K_pows, C, func_dict, error_bound)
     
     saveas(fig,'figures/training_fit.png')
     
-    
-    
+
 end

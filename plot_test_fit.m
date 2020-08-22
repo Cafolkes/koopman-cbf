@@ -22,10 +22,12 @@ function plot_test_fit(X_train,X_test, K_pows, C, func_dict, error_bound)
     ind_y = 4;
     hold on
     for i = 1 : length(X_train)
-        sc1 = scatter(X_train{i}(ind_x,:),X_train{i}(ind_y,:),'r');
+        X_train{i}(:,4) = wrapTo2Pi(X_train{i}(:,4));
+        sc1 = scatter(X_train{i}(:,ind_x),X_train{i}(:,ind_y),'r');
     end
     for i = 1 : length(X_test)
-        sc2 = scatter(X_test{i}(ind_x,:),X_test{i}(ind_y,:),'b');
+        X_test{i}(:,4) = wrapTo2Pi(X_test{i}(:,4));
+        sc2 = scatter(X_test{i}(:,ind_x),X_test{i}(:,ind_y),'b');
     end
     legend([sc1 sc2], {'Training data', 'Test data'});
     xlabel('Velocity ($x_3$)');
@@ -49,7 +51,9 @@ function plot_test_fit(X_train,X_test, K_pows, C, func_dict, error_bound)
     plot(tt, traj_bounds(max_err_ind,:), '--r', 'lineWidth',2)
     for i = 1 : length(X_hat)
         tt = 0 : Ts : Ts*(length(X_test{i})-1);
-        plot(tt, vecnorm(X_test{i}-X_hat{i}',2,2))
+        diff = X_test{i}-X_hat{i}';
+        diff(:,4) = angdiff(X_test{i}(:,4),X_hat{i}(4,:)');
+        plot(tt, vecnorm(diff,2,2))
     end
     xlabel('Time (sec)');
     ylabel('Prediction error $||x-\hat{x}||$');
