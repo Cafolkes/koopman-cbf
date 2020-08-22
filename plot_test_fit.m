@@ -22,12 +22,12 @@ function plot_test_fit(X_train,X_test, K_pows, C, func_dict, error_bound)
     ind_y = 4;
     hold on
     for i = 1 : length(X_train)
-        scatter(X_train{i}(ind_x,:),X_train{i}(ind_y,:),'r')
+        sc1 = scatter(X_train{i}(ind_x,:),X_train{i}(ind_y,:),'r');
     end
     for i = 1 : length(X_test)
-        scatter(X_test{i}(ind_x,:),X_test{i}(ind_y,:),'b')
+        sc2 = scatter(X_test{i}(ind_x,:),X_test{i}(ind_y,:),'b');
     end
-    legend('Training data', 'Test data');
+    legend([sc1 sc2], {'Training data', 'Test data'});
     xlabel('Velocity ($x_3$)');
     ylabel('Angle ($x_4$)');
     title('Test data (states)');
