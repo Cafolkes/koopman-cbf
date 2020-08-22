@@ -3,7 +3,7 @@ function plot_experiment(x_rec, u_rec, u0_rec, func_dict, K_pows, C)
     global Ts am T_exp obs r
     
     for i=1:round(T_exp/Ts)
-        figure(1)
+        figure(3)
         clf
         hold on
         draw_circle(obs(1),obs(2),r);

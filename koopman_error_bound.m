@@ -10,9 +10,7 @@ function err_bnd = koopman_error_bound(x,X,L,e_max,tt,K_pows,C,func_dict)
     
     err_bnd = {};
     for k = 1:length(tt)-1
-        if k >= 2
-            CA_norm = CA_norm + norm(C*K_pows{1},p)^(k-1);
-        end
+        CA_norm = CA_norm + norm(C*K_pows{1},p)^(k); %Note: shifted because error for time=0 not calculated
         err_bnd{k} = norm(C*K_pows{k}*(d-d_hat),p) + norm(e_max,p)*CA_norm + exp(L*k*Ts)*norm(x-x_hat,p);
     end 
 end
