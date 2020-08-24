@@ -13,6 +13,7 @@ function X = collect_data(sim_dynamics, sim_process, controller, stop_criterion,
 end
 
 function [tt,xx] = simulate_sys(x, sim_dynamics, sim_process, controller, stop_criterion, ts)
+    %global vm am Ts    
     if nargin<6
         ts = 0.02;
     end
@@ -22,6 +23,7 @@ function [tt,xx] = simulate_sys(x, sim_dynamics, sim_process, controller, stop_c
     xx = x';
 
     while ~stop_criterion(t,x)
+    %for i = 1 : ceil(vm/am/Ts)
         u = controller(x);
         xdot = @(t,x) sim_dynamics(x,u);
         [~, x_tmp] = ode45(xdot,[t,t+ts],x);

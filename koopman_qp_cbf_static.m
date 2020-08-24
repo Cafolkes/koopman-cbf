@@ -1,10 +1,9 @@
-function u = koopman_qp_cbf(x, u0, N, system_dynamics, barrier_func, func_dict, K_pows, C, options)
-    global Ts alpha
+function u = koopman_qp_cbf_static(x, u0, N, system_dynamics, barrier_func, alpha, func_dict, K_pows, C, options)
 
     [d,J] = func_dict(x);
     xx = zeros(N,4);
     QQ = zeros(N*4,4);
-    tt = Ts*(1:N);
+    %tt = Ts*(1:N);
     for j=1:N
         xx(j,:)=(C*K_pows{j}*d)';
         QQ(4*(j-1)+1:4*j,:)=C*K_pows{j}*J;
@@ -12,8 +11,11 @@ function u = koopman_qp_cbf(x, u0, N, system_dynamics, barrier_func, func_dict, 
     Aineq = [];
     bineq = [];
     [f,g] = system_dynamics(x);
-    for j = 1:length(tt)
+    for j = 1:N
         b = barrier_func(xx(j,:)');
+        if b < 0
+            disp(b)
+        end
         if b<1
             h = 1e-4;
             db = zeros(4,1);
@@ -30,4 +32,5 @@ function u = koopman_qp_cbf(x, u0, N, system_dynamics, barrier_func, func_dict, 
     else
         [u,~,~] =qpOASES(eye(2),-u0,Aineq,[],[],[],bineq,options);
     end
+    plot(xx(:,1),xx(:,2))
 end

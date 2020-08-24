@@ -19,7 +19,7 @@ function plot_experiment(x_rec, u_rec, u0_rec, func_dict, K_pows, C)
         for j = 1:N
             plot(xx(j,1),xx(j,2),'b*');
         end
-        axis([-2,15,-5,5])
+        axis([-0.2,1.2,-0.5,0.5])
         axis equal
         drawnow
     end

@@ -25,10 +25,12 @@ function L = calc_lipschitz(n,m,affine_dynamics, con1)
             otherwise
                 disp('Warning, higher state dimension than 6 not implemented')
                 return
+        end
             
-        obj = @(x) -norm(J_fun(x),2)
+        obj = @(x) -norm(J_fun(x),2);
         
-        x_tmp = fmincon(obj,rand(4,1),[],[],[],[],lb,ub);
+        x_0 = x_bdry(:,1)+(x_bdry(:,2)-x_bdry(:,1)).*rand(4,1);
+        x_tmp = fmincon(obj,x_0,[],[],[],[],lb,ub);
         
         L_row(i) = -obj(x_tmp);
     end
