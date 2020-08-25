@@ -2,7 +2,7 @@
 % This script shows how to initialize robots to a particular point.
 % Sean Wilson
 % 07/2019
-close all; clc;
+close all; clc; addpath('controllers','dynamics','koopman_learning','utils');
 
 % Experiment parameters:
 n = 3;                                              % Number of states (unicycle model)
@@ -16,7 +16,6 @@ r_margin = 0.23;                                    % Minimum distance between r
 alpha = 1;                                          % CBF strengthening term
 obs = [-0.3 0.1];                                   % Center of obstacle
 r_obs = 0.2;                                        % Radius of obstacle (- r_margin)
-color_vec = ['k' 'y' 'b' 'r' 'c'];                  % Color spec for markers
 
 % Generate intial and final positions:
 initial_positions = zeros(n,N);

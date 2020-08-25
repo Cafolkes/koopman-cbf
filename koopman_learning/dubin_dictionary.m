@@ -10,4 +10,4 @@ J = jacobian(D,x);
 
 F = [D,J];
 C=[zeros(4,1) eye(4) zeros(4,9)];
-matlabFunction(D,J,C,'file','dubin_D.m');
+matlabFunction(D,J,C,'file','koopman_learning/dubin_D.m');

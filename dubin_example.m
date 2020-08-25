@@ -2,7 +2,7 @@
 % Written by Yuxiao Chen and Carl Folkestad
 % California Institute of Technology, 2020
 
-clc; clear; clf; close all; addpath('utils')
+clc; clear; clf; close all; addpath('controllers','dynamics','koopman_learning','utils')
 
 %% Define experiment parameters:
 

@@ -33,11 +33,4 @@ function u = koopman_qp_cbf_static(x, u0, N, system_dynamics, barrier_func, alph
     else
         [u,~,~] =qpOASES(eye(2),-u0,Aineq,[],[],[],bineq,options);
     end
-    
-    global p1 
-    if exist('p1','var')
-        delete(p1);
-    end
-    p1 = plot(xx(:,1),xx(:,2),':r', 'Linewidth',2);
-    
 end
