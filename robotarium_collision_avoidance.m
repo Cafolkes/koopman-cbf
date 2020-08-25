@@ -6,7 +6,7 @@ close all; clc;
 
 % Experiment parameters:
 n = 3;                                              % Number of states (unicycle model)
-N = 5;                                              % Number of robots
+N = 6;                                              % Number of robots
 n_passes = 2;                                       % Number of times to travel between waypoints
 radius_waypoints = 0.8;                             % Radius of circle where waypoints are placed
 start_angles = linspace(0,2*pi-(2*pi/N),N);         % Angle of ray where each robot is placed initially
@@ -42,10 +42,7 @@ affine_dynamics = @(x) dubin(x);                        % System dynamics, retur
 dt = r.time_step;
 u_lim = [-0.2 0.2; - 2*pi/3, 2*pi/3];
 barrier_func_collision = @(x_1, x_2) collision_avoidance_vec(x_1,x_2,r_margin);                   
-%draw_circle(obs(1),obs(2),r_circ-r_margin);
-%barrier_func = @(x) round_obs(x,obs,r_circ);             % Barrier function
-%supervisory_controller = @(x,u0) koopman_qp_cbf_static(x, u0, N_max, affine_dynamics, barrier_func, alpha, func_dict, K_pows, C, options, u_lim);
-supervisory_controller = @(x,u0) koopman_qp_cbf_multiagent_vec(x, u0, N_max, affine_dynamics, barrier_func_collision, alpha, N, func_dict, K_pows, C, options, u_lim);
+supervisory_controller = @(x,u0,agent_ind) koopman_qp_cbf_multiagent_vec(x, u0, agent_ind, N_max, affine_dynamics, barrier_func_collision, alpha, N, func_dict, K_pows, C, options, u_lim);
 
 % Get initial location data for while loop condition.
 x=r.get_poses();
@@ -79,8 +76,7 @@ for l = 1:n_passes
         u_0 = [ad_est; dxu(2,:)];
         
         for i = 1:N
-            % TODO: See how controller was solved in previous paper..
-            u_barrier = supervisory_controller(x_mod,u_0(:,i));
+            u_barrier = supervisory_controller(x_mod,u_0(:,i),i);
             vd_est = v_est(i) + u_barrier(1)*dt;
         
             dxu(:,i) = [vd_est; u_barrier(2)];

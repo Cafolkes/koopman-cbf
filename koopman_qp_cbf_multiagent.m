@@ -1,4 +1,4 @@
-function u = koopman_qp_cbf_multiagent(x, u0, N, system_dynamics, barrier_func_collision, alpha, n_agents, func_dict, K_pows, C, options)
+function u = koopman_qp_cbf_multiagent(x, u0, agent_ind, N, system_dynamics, barrier_func_collision, alpha, n_agents, func_dict, K_pows, C, options)
     assert(size(x,2)==n_agents,'Number of agents misspesified');
     n=4;
     
@@ -15,30 +15,28 @@ function u = koopman_qp_cbf_multiagent(x, u0, N, system_dynamics, barrier_func_c
     Aineq = [];
     bineq = [];
     
-    for i = 1 : n_agents
-        [f,g] = system_dynamics(x(:,i));
-        for j = 1 : n_agents
-            if i == j
-                continue
-            end
-            
-            for k = 1:N
-                x_1 = reshape(xx(i,k,:),n,1);
-                x_2 = reshape(xx(j,k,:),n,1);
-                
-                b = barrier_func_collision(x_1, x_2);
-                if b<1
-                    qq = QQ{i}(n*(k-1)+1:n*k,:);
-                    
-                    h = 1e-4;
-                    db = zeros(n,1);
-                    db(1) = (barrier_func_collision(x_1+[h;0;0;0],x_2)-b)/h;
-                    db(2) = (barrier_func_collision(x_1+[0;h;0;0],x_2)-b)/h;
-                    db(3) = (barrier_func_collision(x_1+[0;0;h;0],x_2)-b)/h;
-                    db(4) = (barrier_func_collision(x_1+[0;0;0;h],x_2)-b)/h;
-                    Aineq = [Aineq;-db'*qq*g];
-                    bineq = [bineq;alpha*b+db'*qq*f];
-                end
+    [f,g] = system_dynamics(x(:,agent_ind));
+    for j = 1 : n_agents
+        if agent_ind == j
+            continue
+        end
+
+        for k = 1:N
+            x_1 = reshape(xx(agent_ind,k,:),n,1);
+            x_2 = reshape(xx(j,k,:),n,1);
+
+            b = barrier_func_collision(x_1, x_2);
+            if b<1
+                qq = QQ{agent_ind}(n*(k-1)+1:n*k,:);
+
+                h = 1e-4;
+                db = zeros(n,1);
+                db(1) = (barrier_func_collision(x_1+[h;0;0;0],x_2)-b)/h;
+                db(2) = (barrier_func_collision(x_1+[0;h;0;0],x_2)-b)/h;
+                db(3) = (barrier_func_collision(x_1+[0;0;h;0],x_2)-b)/h;
+                db(4) = (barrier_func_collision(x_1+[0;0;0;h],x_2)-b)/h;
+                Aineq = [Aineq;-db'*qq*g];
+                bineq = [bineq;alpha*b+db'*qq*f];
             end
         end
     end
