@@ -1,6 +1,6 @@
 function [] =draw_circle(X,Y,R,color,linewidth)
 if nargin<4
-    color='b';
+    color='r';
     
 end
 if nargin<5

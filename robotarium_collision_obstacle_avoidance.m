@@ -12,10 +12,11 @@ radius_waypoints = 0.8;                             % Radius of circle where way
 start_angles = linspace(0,2*pi-(2*pi/N),N);         % Angle of ray where each robot is placed initially
 end_angles = wrapTo2Pi(start_angles + pi);          % Angle of ray where each robot has final position
 koopman_file = 'dubin_learned_koopman.mat';         % File containing learned Koopman model
-r_margin = 0.14;                                    % Minimum distance between robot center points                
+r_margin = 0.23;                                    % Minimum distance between robot center points                
 alpha = 1;                                          % CBF strengthening term
-obs = [0;0];                                        % Center of obstacle
-r_circ = 0.2;                                       % Radius of obstacle (- r_margin)
+obs = [-0.3 0.1];                                   % Center of obstacle
+r_obs = 0.2;                                        % Radius of obstacle (- r_margin)
+color_vec = ['k' 'y' 'b' 'r' 'c'];                  % Color spec for markers
 
 % Generate intial and final positions:
 initial_positions = zeros(n,N);
@@ -42,7 +43,9 @@ affine_dynamics = @(x) dubin(x);                        % System dynamics, retur
 dt = r.time_step;
 u_lim = [-0.1 0.1; - 2*pi/3, 2*pi/3];
 barrier_func_collision = @(x_1, x_2) collision_avoidance_vec(x_1,x_2,r_margin);                   
-supervisory_controller = @(x,u0,agent_ind) koopman_qp_cbf_multiagent_vec(x, u0, agent_ind, N_max, affine_dynamics, barrier_func_collision, alpha, N, func_dict, K_pows, C, options, u_lim);
+barrier_func_obstacle = @(x) round_obs_vec(x,obs,r_obs);             
+draw_circle(obs(1),obs(2),r_obs-r_margin/2);
+supervisory_controller = @(x,u0,agent_ind) koopman_qp_cbf_multiagent_obstacle_vec(x, u0, agent_ind, N_max, affine_dynamics, barrier_func_obstacle, barrier_func_collision, alpha, N, func_dict, K_pows, C, options, u_lim);
 
 % Get initial location data for while loop condition.
 x=r.get_poses();
@@ -85,11 +88,17 @@ for l = 1:n_passes
         u_0 = [ad_est; dxu(2,:)];
         
         for i = 1:N
+            %if abs(dxu(1,i)) > pi
+            %    disp(dxu(2,i))
+            %end
             u_barrier = supervisory_controller(x_mod,u_0(:,i),i);
             vd_est = v_est(i) + u_barrier(1)*dt;
-        
+            
+            vd_est = max(vd_est,0); % Ensure vd is in [0. 0.15] (as a result of the simplified state estimation)
+            vd_est = min(vd_est,0.15);
             dxu(:,i) = [vd_est; u_barrier(2)];
         end
+        
         
         r.set_velocities(1:N, dxu);
         r.step();   
