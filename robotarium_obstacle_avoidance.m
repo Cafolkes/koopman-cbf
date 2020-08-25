@@ -2,7 +2,7 @@
 % This script shows how to initialize robots to a particular point.
 % Sean Wilson
 % 07/2019
-close all; clc; addpath('controllers','dynamics','koopman_learning','utils');
+close all; clc; addpath('controllers','dynamics','koopman_learning','utils','data','utils/qpOASES-3.1.0/interfaces/matlab');
 
 % Experiment parameters:
 n = 3;                                              % Number of states (unicycle model)

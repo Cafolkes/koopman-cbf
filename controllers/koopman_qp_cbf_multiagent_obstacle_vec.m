@@ -85,5 +85,6 @@ function u = koopman_qp_cbf_multiagent_obstacle_vec(x, u0, agent_ind, N, system_
         u = u0;
     else
         [u,~,~] =qpOASES(eye(2),-u0,Aineq,[],[],[],bineq,options);
+        
     end
 end
