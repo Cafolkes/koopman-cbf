@@ -12,3 +12,4 @@ for i=1:size(theta,2)
     y(i)=Y+R*sin(theta(i));
 end
 plot(x,y,color,'linewidth',linewidth);
+fill(x,y,color);

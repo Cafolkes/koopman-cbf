@@ -41,7 +41,7 @@ affine_dynamics = @(x) dubin(x);                        % System dynamics, retur
                                                         % State is defined as x = [X,Y,v,theta], u = [a,r]
 dt = r.time_step;
 u_lim = [-r.max_linear_velocity/dt r.max_linear_velocity/dt; - pi, pi];
-barrier_func_collision = @(x_1, x_2) collision_avoidance(x_1,x_2,r_margin);                   
+barrier_func_collision = @(x_1, x_2) collision_avoidance_vec(x_1,x_2,r_margin);                   
 %draw_circle(obs(1),obs(2),r_circ-r_margin);
 %barrier_func = @(x) round_obs(x,obs,r_circ);             % Barrier function
 %supervisory_controller = @(x,u0) koopman_qp_cbf_static(x, u0, N_max, affine_dynamics, barrier_func, alpha, func_dict, K_pows, C, options, u_lim);
