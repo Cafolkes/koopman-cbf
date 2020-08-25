@@ -17,6 +17,15 @@ alpha = 1;                                          % CBF strengthening term
 obs = [-0.3 0.1];                                   % Center of obstacle
 r_obs = 0.2;                                        % Radius of obstacle (- r_margin)
 
+% Data storage:
+file_name = 'collision_obstacle_avoidance.mat';     % File to save data matrices
+for i = 1 : N
+    x_data{i} = [];                                 % Store state of each robot
+    backup_data{i} = [];                            % Store difference between legacy and supervisory controller (norm(u0-u))
+    x_init_data{i} = [];                                 % Store initial point
+    x_final_data{i} = [];                                % Store final point
+end
+
 % Generate intial and final positions:
 initial_positions = zeros(n,N);
 initial_positions(1,:) = radius_waypoints*cos(start_angles);
@@ -104,8 +113,16 @@ for l = 1:n_passes
         v_prev = dxu(1,:);
         x_prev = x;
         
+        % Store data
+        for i = 1 : N
+            x_data{i} = [x_data{i} x_mod(:,i)];
+            backup_data{i} = [backup_data{i} norm(u_0-u_barrier)];
+            x_init_data{i} = [x_init_data{i} initial(:,i)];
+            x_final_data{i} = [x_final_data{i} final(:,i)];
+        end
     end    
 end
+save(file_name,'x_data','backup_data','x_init_data','x_final_data','obs','r_obs','r_margin');
 
 % We can call this function to debug our experiment!  Fix all the errors
 % before submitting to maximize the chance that your experiment runs

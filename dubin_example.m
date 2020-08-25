@@ -66,4 +66,4 @@ plot_experiment(x_rec, u_rec, u0_rec, func_dict, K_pows, C);
 
 %% Save learned matrices to use in other experiments:
 close all;
-save('dubin_learned_koopman.mat','K_pows','C','func_dict','N_max')
+save('data/dubin_learned_koopman.mat','K_pows','C','func_dict','N_max')

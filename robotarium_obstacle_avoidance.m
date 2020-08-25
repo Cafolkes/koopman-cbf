@@ -15,7 +15,16 @@ koopman_file = 'dubin_learned_koopman.mat';         % File containing learned Ko
 r_margin = 0.08;                                    % Minimum distance between robot center points                
 alpha = 1;                                          % CBF strengthening term
 obs = [0;0];                                        % Center of obstacle
-r_circ = 0.2;                                       % Radius of obstacle (- r_margin)
+r_obs = 0.2;                                       % Radius of obstacle (- r_margin)
+
+% Data storage:
+file_name = 'obstacle_avoidance.mat';               % File to save data matrices
+for i = 1 : N
+    x_data{i} = [];                                 % Store state of each robot
+    backup_data{i} = [];                            % Store difference between legacy and supervisory controller (norm(u0-u))
+    x_init_data{i} = [];                                 % Store initial point
+    x_final_data{i} = [];                                % Store final point
+end
 
 % Generate intial and final positions:
 initial_positions = zeros(n,N);
@@ -41,8 +50,8 @@ affine_dynamics = @(x) dubin(x);                        % System dynamics, retur
                                                         % State is defined as x = [X,Y,v,theta], u = [a,r]
 dt = r.time_step;
 u_lim = [-r.max_linear_velocity/dt r.max_linear_velocity/dt; - pi, pi];
-draw_circle(obs(1),obs(2),r_circ-r_margin);
-barrier_func = @(x) round_obs(x,obs,r_circ);             % Barrier function
+draw_circle(obs(1),obs(2),r_obs-r_margin);
+barrier_func = @(x) round_obs(x,obs,r_obs);             % Barrier function
 supervisory_controller = @(x,u0) koopman_qp_cbf_static(x, u0, N_max, affine_dynamics, barrier_func, alpha, func_dict, K_pows, C, options, u_lim);
 
 % Get initial location data for while loop condition.
@@ -85,8 +94,17 @@ for l = 1:n_passes
         r.step();   
         v_prev = dxu(1,:);
         x_prev = x;
+        
+        % Store data
+        for i = 1 : N
+            x_data{i} = [x_data{i} x_mod(:,i)];
+            backup_data{i} = [backup_data{i} norm(u_0-u_barrier)];
+            x_init_data{i} = [x_init_data{i} initial(:,i)];
+            x_final_data{i} = [x_final_data{i} final(:,i)];
+        end
     end    
 end
+save(file_name,'x_data','backup_data','x_init_data','x_final_data','obs','r_obs','r_margin');
 
 % We can call this function to debug our experiment!  Fix all the errors
 % before submitting to maximize the chance that your experiment runs
