@@ -12,11 +12,11 @@ affine_dynamics = @(x) dubin(x);                    % System dynamics, returns [
                                                     % State is defined as x = [X,Y,v,theta], u = [a,r]
 sim_dynamics = @(x,u) dubin_sim(x,u);               % System dynamics used for simulation
 sim_process = @(x,ts) dubin_sim_process(x,ts);      % Processing of states while simulating
-Ts = 0.1;                                           % Sampling interval
-vm = 0.15;                                          % Maximum velocity
+Ts = 0.05;                                          % Sampling interval
+vm = 0.2;                                           % Maximum velocity
 rm = pi;                                            % Maximum yaw rate
-am = 0.1;                                             % Maximum acceleration
-x_bdry = [-1.6 1.6;-1 1;vm vm;0 2*pi];                  % State constraints
+am = 0.1;                                           % Maximum acceleration
+x_bdry = [-1.6 1.6;-1 1;vm vm;0 2*pi];              % State constraints
 N_max = ceil(vm/am/Ts);                             % Maximum backup controller horizon
 con1 = @(x)[-am*sign(x(3));rm];                     % Backup controller (max brake and max turn)
 stop_crit1 = @(t,x)(abs(x(3))<=0);                  % Stop if velocity is zero
@@ -34,9 +34,9 @@ mpc_horizon = 20;                                   % Time horizon of legacy con
 legacy_controller = @(x) MIQP_MPC_v3(x,x_des,20);   % Legacy controller (MPC)
 options = qpOASES_options('printLevel',0);          % Solver options for supervisory controller
 T_exp = 10;                                         % Experiment length
-alpha = 1;                                          % CBF strengthening parameter
-obs = [0.5;0];                                        % Center of circular obstacle
-r = 0.1;                                              % Radius of circular obstacle
+alpha = 2;                                          % CBF strengthening parameter
+obs = [0.5;0];                                      % Center of circular obstacle
+r = 0.05;                                           % Radius of circular obstacle
 barrier_func = @(x) round_obs(x,obs,r);             % Barrier function
 
 %% Learn approximated discrete-time Koopman operator:
@@ -45,7 +45,8 @@ X_train = collect_data(sim_dynamics, sim_process, con1, stop_crit1, n_samples);
 [K, C] = edmd(X_train, func_dict);
 K_pows = precalc_matrix_powers(N_max,K);
 
-L = calc_lipschitz(4,2, affine_dynamics, con1); 
+%L = calc_lipschitz(4,2, affine_dynamics, con1); 
+L = 0;  
 e_max = calc_max_residual(X_train, func_dict, K, C);
 tt = 0:Ts:Ts*N_max;
 error_bound = @(x) koopman_error_bound(x,X_train,L,e_max,tt,K_pows,C,func_dict);

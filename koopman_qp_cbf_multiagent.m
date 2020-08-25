@@ -1,5 +1,4 @@
-function u = koopman_qp_cbf_multiagent(x, u0, N, system_dynamics, barrier_func_collision, n_agents, func_dict, K_pows, C, options)
-    global alpha
+function u = koopman_qp_cbf_multiagent(x, u0, N, system_dynamics, barrier_func_collision, alpha, n_agents, func_dict, K_pows, C, options)
     assert(size(x,2)==n_agents,'Number of agents misspesified');
     n=4;
     
@@ -15,6 +14,7 @@ function u = koopman_qp_cbf_multiagent(x, u0, N, system_dynamics, barrier_func_c
     
     Aineq = [];
     bineq = [];
+    
     for i = 1 : n_agents
         [f,g] = system_dynamics(x(:,i));
         for j = 1 : n_agents
@@ -42,6 +42,7 @@ function u = koopman_qp_cbf_multiagent(x, u0, N, system_dynamics, barrier_func_c
             end
         end
     end
+    
     if isempty(Aineq)
         u = u0;
     else

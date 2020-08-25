@@ -1,9 +1,9 @@
-function u = koopman_qp_cbf_static(x, u0, N, system_dynamics, barrier_func, alpha, func_dict, K_pows, C, options)
+function u = koopman_qp_cbf_static(x, u0, N, system_dynamics, barrier_func, alpha, func_dict, K_pows, C, options, u_lim)
 
     [d,J] = func_dict(x);
     xx = zeros(N,4);
     QQ = zeros(N*4,4);
-    %tt = Ts*(1:N);
+    
     for j=1:N
         xx(j,:)=(C*K_pows{j}*d)';
         QQ(4*(j-1)+1:4*j,:)=C*K_pows{j}*J;
@@ -27,10 +27,20 @@ function u = koopman_qp_cbf_static(x, u0, N, system_dynamics, barrier_func, alph
             bineq = [bineq;alpha*b+db'*QQ(4*(j-1)+1:4*j,:)*f];
         end
     end
+    if nargin > 10
+       Aineq = [Aineq;-eye(2);eye(2)]; % [other constraints; lower lim, upper lim]
+       bineq = [bineq;-u_lim(:,1);u_lim(:,2)];
+    end
     if isempty(Aineq)
         u = u0;
     else
         [u,~,~] =qpOASES(eye(2),-u0,Aineq,[],[],[],bineq,options);
     end
-    plot(xx(:,1),xx(:,2))
+    
+    global p1 
+    if exist('p1','var')
+        delete(p1);
+    end
+    p1 = plot(xx(:,1),xx(:,2),':r', 'Linewidth',2);
+    
 end
