@@ -45,7 +45,7 @@ barrier_func_collision = @(x_1, x_2) collision_avoidance_vec(x_1,x_2,r_margin);
 %draw_circle(obs(1),obs(2),r_circ-r_margin);
 %barrier_func = @(x) round_obs(x,obs,r_circ);             % Barrier function
 %supervisory_controller = @(x,u0) koopman_qp_cbf_static(x, u0, N_max, affine_dynamics, barrier_func, alpha, func_dict, K_pows, C, options, u_lim);
-supervisory_controller = @(x,u0) koopman_qp_cbf_multiagent(x, u0, N_max, affine_dynamics, barrier_func_collision, alpha, N, func_dict, K_pows, C, options);
+supervisory_controller = @(x,u0) koopman_qp_cbf_multiagent_vec(x, u0, N_max, affine_dynamics, barrier_func_collision, alpha, N, func_dict, K_pows, C, options, u_lim);
 
 % Get initial location data for while loop condition.
 x=r.get_poses();
