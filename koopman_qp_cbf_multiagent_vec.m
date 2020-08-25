@@ -1,4 +1,4 @@
-function u = koopman_qp_cbf_multiagent(x, u0, N, system_dynamics, barrier_func_collision, alpha, n_agents, func_dict, K_pows, C, options)
+function u = koopman_qp_cbf_multiagent_vec(x, u0, N, system_dynamics, barrier_func_collision, alpha, n_agents, func_dict, K_pows, C, options, u_lim)
     assert(size(x,2)==n_agents,'Number of agents misspesified');
     n=4;
     
@@ -52,6 +52,10 @@ function u = koopman_qp_cbf_multiagent(x, u0, N, system_dynamics, barrier_func_c
                 bineq = [bineq;alpha*b_red+db_blkdiag*qq*f_ext];
             end
         end
+    end
+    if nargin > 11
+       Aineq = [Aineq;-eye(2);eye(2)]; % [other constraints; lower lim, upper lim]
+       bineq = [bineq;-u_lim(:,1);u_lim(:,2)];
     end
     
     if isempty(Aineq)
