@@ -13,9 +13,6 @@ function u = koopman_qp_cbf_static(x, u0, N, system_dynamics, barrier_func, alph
     [f,g] = system_dynamics(x);
     for j = 1:N
         b = barrier_func(xx(j,:)');
-        if b < 0
-            disp(b)
-        end
         if b<1
             h = 1e-4;
             db = zeros(4,1);

@@ -6,13 +6,13 @@ close all; clc;
 
 % Experiment parameters:
 n = 3;                                              % Number of states (unicycle model)
-N = 4;                                              % Number of robots
+N = 5;                                              % Number of robots
 n_passes = 2;                                       % Number of times to travel between waypoints
 radius_waypoints = 0.8;                             % Radius of circle where waypoints are placed
 start_angles = linspace(0,2*pi-(2*pi/N),N);         % Angle of ray where each robot is placed initially
 end_angles = wrapTo2Pi(start_angles + pi);          % Angle of ray where each robot has final position
 koopman_file = 'dubin_learned_koopman.mat';         % File containing learned Koopman model
-r_margin = 0.2;                                    % Minimum distance between robot center points                
+r_margin = 0.12;                                    % Minimum distance between robot center points                
 alpha = 1;                                          % CBF strengthening term
 obs = [0;0];                                        % Center of obstacle
 r_circ = 0.2;                                       % Radius of obstacle (- r_margin)
@@ -40,7 +40,7 @@ options = qpOASES_options('printLevel',0);              % Solver options for sup
 affine_dynamics = @(x) dubin(x);                        % System dynamics, returns [f,g] with x_dot = f(x) + g(x)u
                                                         % State is defined as x = [X,Y,v,theta], u = [a,r]
 dt = r.time_step;
-u_lim = [-r.max_linear_velocity/dt r.max_linear_velocity/dt; - pi, pi];
+u_lim = [-0.2 0.2; - 2*pi/3, 2*pi/3];
 barrier_func_collision = @(x_1, x_2) collision_avoidance_vec(x_1,x_2,r_margin);                   
 %draw_circle(obs(1),obs(2),r_circ-r_margin);
 %barrier_func = @(x) round_obs(x,obs,r_circ);             % Barrier function
@@ -63,7 +63,7 @@ for l = 1:n_passes
     end
     
     while(~init_checker(x, final))
-
+        
         x = r.get_poses();
         dxi = controller(x(1:2, :), final(1:2, :)); 
         dxu = si_to_uni_dynamics(dxi, x);
@@ -80,18 +80,17 @@ for l = 1:n_passes
         
         for i = 1:N
             % TODO: See how controller was solved in previous paper..
-            tic;
             u_barrier = supervisory_controller(x_mod,u_0(:,i));
-            toc
             vd_est = v_est(i) + u_barrier(1)*dt;
         
             dxu(:,i) = [vd_est; u_barrier(2)];
         end
-           
+        
         r.set_velocities(1:N, dxu);
         r.step();   
         v_prev = dxu(1,:);
         x_prev = x;
+        
     end    
 end
 
