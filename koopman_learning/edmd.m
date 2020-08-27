@@ -1,15 +1,14 @@
 function [K, C] = edmd(X, func_dict)
+    [Z, Z_p] = lift_data(X, func_dict);
+    n_lift = size(Z,1);
 
-[Z, Z_p] = lift_data(X, func_dict);
-n_lift = size(Z,1);
+    cvx_begin
+    cvx_solver gurobi
+    variables K(n_lift,n_lift)
+    minimize(norm(Z_p - K*Z, Inf))
+    cvx_end
 
-cvx_begin
-cvx_solver gurobi
-variables K(n_lift,n_lift)
-minimize(norm(Z_p-K*Z,Inf) )
-cvx_end
-
-[~,~,C] = func_dict(X{1}(1,:));
+    [~,~,C] = func_dict(X{1}(1,:));
 end
 
 function [Z, Z_p] = lift_data(X, func_dict)

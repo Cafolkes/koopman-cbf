@@ -45,6 +45,7 @@ controller = create_si_position_controller();           % Legacy controller (gre
 
 % Construct Koopman CBF supervisory controller:
 load(koopman_file)
+func_dict = @(x) dubin_D(x(1),x(2),x(3),x(4));
 options = qpOASES_options('printLevel',0);              % Solver options for supervisory controller
 affine_dynamics = @(x) dubin(x);                        % System dynamics, returns [f,g] with x_dot = f(x) + g(x)u
                                                         % State is defined as x = [X,Y,v,theta], u = [a,r]
