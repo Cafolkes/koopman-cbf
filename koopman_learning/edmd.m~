@@ -1,7 +1,6 @@
-function [K, obj_vals] = edmd(Z, Z_p, solver,first_obs_one)
+function K = edmd(Z, Z_p, solver,first_obs_one)
     n_lift = size(Z,1);
     n_pred = size(Z_p,1);
-    obj_vals = zeros(n_pred,1);
     
     if nargin <= 2
         cvx_begin
@@ -18,12 +17,10 @@ function [K, obj_vals] = edmd(Z, Z_p, solver,first_obs_one)
                     y = Z_p(i,:);
                     [K(i,2:end), inf] = lasso(x, y,'Lambda',1e-3); 
                     K(i,1) = inf.Intercept;
-                    obj_vals(i) = inf.MSE;
                 else
                     x = Z(1:end,:)';
                     y = Z_p(i,:);
-                    [K(i,:), inf] = lasso(x, y,'Lambda',1e-3,'Intercept',false); 
-                    obj_vals(i) = inf.MSE;
+                    K(i,:) = lasso(x, y,'Lambda',1e-3,'Intercept',false); 
                 end
                 fprintf('Learned %i out of %i predictors\n', i, n_pred);
             end
@@ -34,9 +31,12 @@ function [K, obj_vals] = edmd(Z, Z_p, solver,first_obs_one)
             %obj = norm(Z_p - K*Z, Inf);
             obj = 0;
             for i = 1 : n_pred
-                obj = obj + norm(K(i,:)*Z-Z_p(i,:),Inf) + 1e-3*norm(K(i,:),1);
+                obj = obj + norm(K(i,:)*Z-Z_p(i,:)) + 1e-3*norm(K(i,:),1);
             end
+            
             minimize(obj)
+            subject to
+                norm(K(4:8)*Z) == 1
             cvx_end
         end
         

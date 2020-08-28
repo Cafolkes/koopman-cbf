@@ -5,8 +5,8 @@ function err_bnd = koopman_error_bound(x,X,L,e_max,tt,K_pows,C,func_dict)
     x_hat = find_closest_x(x,X);
     x_hat(4) = wrapTo2Pi(x_hat(4)); % Shift all angles to be between [0,2pi]
     p=2;
-    [d,~] = func_dict(x);
-    [d_hat,~] = func_dict(x_hat);
+    d = func_dict(x);
+    d_hat = func_dict(x_hat);
     
     CA_norm = 0;
     diff_x = x-x_hat;

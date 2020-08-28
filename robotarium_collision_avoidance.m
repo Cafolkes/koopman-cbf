@@ -46,7 +46,8 @@ controller = create_si_position_controller();           % Legacy controller (gre
 
 % Construct Koopman CBF supervisory controller:
 load(koopman_file)
-options = qpOASES_options('printLevel',0);              % Solver options for supervisory controller
+%options = qpOASES_options('printLevel',0);              % Solver options for supervisory controller
+options = optimoptions('quadprog','Display','none');
 affine_dynamics = @(x) dubin(x);                        % System dynamics, returns [f,g] with x_dot = f(x) + g(x)u
                                                         % State is defined as x = [X,Y,v,theta], u = [a,r]
 dt = r.time_step;
@@ -100,6 +101,13 @@ for l = 1:n_passes
         
             dxu(:,i) = [vd_est; u_barrier(2)];
         end
+        
+        % Threshold values to avoid actuator errors:
+        max_frac = 3/4;
+        dxu(1,:) = min(dxu(1,:),ones(1,N)*r.max_linear_velocity*max_frac);
+        dxu(1,:) = max(dxu(1,:),zeros(1,N));
+        dxu(2,:) = min(dxu(2,:),ones(1,N)*r.max_angular_velocity*max_frac);
+        dxu(2,:) = max(dxu(2,:),-ones(1,N)*r.max_angular_velocity*max_frac);
         
         r.set_velocities(1:N, dxu);
         r.step();   

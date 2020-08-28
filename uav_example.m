@@ -28,6 +28,7 @@ KpOmegaz = 2; %2
 V_max = 14.8;
 V_min = 0.5;
 hoverT = 0.5126*V_max; %0.52
+Omega_hover = 497.61*ones(4,1);
 M = [KpVxy; KpVz; KpAtt; KdAtt; KpOmegaz; hoverT];      % Backup controller parameters
 
 affine_dynamics = @(x) UAVDynamics(x);                  % System dynamics, returns [f,g] with x_dot = f(x) + g(x)u
@@ -39,54 +40,92 @@ sim_process = @(x,ts) x;                                % Processing of state da
 initial_condition = @() generate_initial_state_uav();
 
 %Koopman learning parameters:
-if ~exist('uav_D.m', 'file')
-    uav_dictionary;                                     % Generate dictionary for uav
+n = 13;
+polyorder = 2;
+if ~exist(['poly_D_' num2str(n) '_' num2str(polyorder) '.m'], 'file')
+    generic_basis(n,polyorder,true);                                     % Generate dictionary for uav
 end
-func_dict = @(x) uav_D(x(1),x(2),x(3),x(4),x(5),x(6),x(7),x(8),x(9),x(10),...
-    x(11),x(12),x(13),x(14),x(15),x(16),x(17));         % Function dictionary, returns [D,J] = [dictionary, jacobian of dictionary]
-n_samples = 100;                                         % Number of initial conditions to sample for training
+if n == 13 && polyorder == 2
+    func_dict = @(x) poly_D_13_2(x(1),x(2),x(3),x(4),x(5),x(6),x(7),x(8),x(9),x(10),...
+        x(11),x(12),x(13));         % Function dictionary, returns [D,J] = [dictionary, jacobian of dictionary]
+elseif n == 17
+    func_dict = @(x) poly_D(x(1),x(2),x(3),x(4),x(5),x(6),x(7),x(8),x(9),x(10),...
+        x(11),x(12),x(13),x(14),x(15),x(16),x(17));         % Function dictionary, returns [D,J] = [dictionary, jacobian of dictionary]
+end
 
+
+n_samples = 200;                                         % Number of initial conditions to sample for training
+gather_data = true;
 
 %% Learn approximated discrete-time Koopman operator:
 
-gather_data = false;
 if gather_data == true
     [T_train, X_train] = collect_data(sim_dynamics, sim_process, backup_controller, controller_process, stop_crit1, initial_condition, n_samples, ts); 
     save('training_data.mat', 'T_train','X_train');
     plot_training_data(X_train,n_samples)
+    
+    % Process data so it only contains the states chosen for training:
+    for i = 1 : length(X_train)
+        X_train{i} = X_train{i}(:,1:n);
+    end
 else
     load('training_data.mat');
 end
 
-[K, C] = edmd(X_train, func_dict);
+[Z, Z_p] = lift_data(X_train,func_dict);
+%n_lift = size(Z,1);
+%A_nom = eye(n_lift);
+
+%Z = Z(:,1:100);
+%Z_p = Z_p(5:end,1:100);
+Z_p = Z_p(5:end,:);
+[K, obj_vals] = edmd(Z, Z_p, 'lasso', true);
+
+K = [zeros(4,size(Z,1)); K];
+%K = K + A_nom;
+K(1,1) = 1;
+for i = 1 : 3
+    K(i+1,i+1) = 1;
+    K(i+1,i+7) = Ts;
+end
+
+[~,~,C] = func_dict(X_train{1}(1,:));
+
 K_pows = precalc_matrix_powers(N_max,K);
 
 L = 0;  
-e_max = calc_max_residual(X_train, func_dict, K, C);
+%e_max = calc_max_residual(X_train, func_dict, K, C);
 tt = 0:Ts:Ts*N_max;
-error_bound = @(x) koopman_error_bound(x,X_train,L,e_max,tt,K_pows,C,func_dict);
-%%
-plot_training_fit_uav(T_train, X_train, K_pows, C, func_dict, error_bound, N_max);
+%error_bound = @(x) koopman_error_bound(x,X_train,L,e_max,tt,K_pows,C,func_dict);
+error_bound = 0;
 
-%% Evaluate Koopman approximation on test data:
+%% Evaluate Koopman approximation on training and test data:
 
-%X_test = collect_data(sim_dynamics, sim_process, backup_controller, controller_process, stop_crit1, initial_condition, n_samples, ts); 
-%plot_test_fit(X_train, X_test, K_pows, C, func_dict, error_bound);
-
-function K = uav_learning(X,y)
-    K_learned = zeros(n_lift);
-
-    K_learned(1,:) = [1 zeros(1,n_lift-1)];
-    for i = 2:4
-        K_learned(i,:) = [zeros(1,i-1) 1 zeros(1,6) Ts zeros(1,n_lift-i-7)];
+if gather_data == true
+    [T_test, X_test] = collect_data(sim_dynamics, sim_process, backup_controller, controller_process, stop_crit1, initial_condition, n_samples, ts); 
+    save('test_data.mat', 'T_test','X_test');
+    plot_training_data(X_test,n_samples)
+    
+    for i = 1 : length(X_test)
+        X_test{i} = X_test{i}(:,1:n);
     end
-    for i = 5 : n_lift
-        x = Z';
-        y = Z_p(i,:);
-        K_learned(i,:) = lasso(x, y,'Lambda',1e-4); 
-        fprintf('Learned %i out of %i predictors\n', i, n_lift);
-    end
+else
+    load('test_data.mat');
 end
+
+% Training data fit:
+fprintf('Training fit: \n')
+for i = 1 : 6
+    fprintf('The MSE of $x_%i$ is: %.5f \n', i+3+4, obj_vals(i+4))
+end
+
+% Test data fit:
+fprintf('\nTest fit: \n')
+for i = 1 : 6
+    fprintf('The MSE of $x_%i$ is: %.5f \n', i+3+4, obj_vals(i+4))
+end
+
+plot_fit_uav(T_train, X_train, T_test, X_test, K_pows, C, func_dict, error_bound, N_max);
 
 function plot_training_data(X,n_samples)
     global Ts
@@ -141,69 +180,75 @@ function plot_training_data(X,n_samples)
     end
 end
 
-function plot_training_fit_uav(T, X, K_pows, C, func_dict, error_bound, N_max)
+function plot_fit_uav(T_train, X_train, T_test, X_test, K_pows, C, func_dict, error_bound, N_max)
     global Ts x_bdry
     
+    X_train_hat = predict_x(X_train, K_pows, C, func_dict);
+    X_test_hat = predict_x(X_test, K_pows, C, func_dict);
+    
+    fig = figure(1);
+    set(groot,'defaulttextinterpreter','latex');  
+    set(groot, 'defaultAxesTickLabelInterpreter','latex');  
+    set(groot, 'defaultLegendInterpreter','latex');
+    
+    xyz_plot_num = [1 2; 3 4; 5 6; 7 8];
+    
+    for i = 1 : 2
+        if i == 1
+            X = X_train;
+            X_hat = X_train_hat;
+            T = T_train;
+        else
+            X = X_test;
+            X_hat = X_test_hat;
+            T = T_test;
+        end
+        
+        for j = 1 : 3
+            subplot(4,2,xyz_plot_num(j,i))
+            hold on
+            for k = 1 : length(X)
+                diff = (X{k}-X_hat{k})';
+                T{k} = 0 : Ts : (size(diff,2)-1)*Ts; %TODO: Fix data collection so that T is correct 
+                plot(T{k},diff(j,:))
+            end
+            if j == 1
+                ylabel('$x-\hat{x}$');
+                if i == 1
+                    title('Prediction error, training')
+                else
+                    title('Prediction error, test')
+                end
+            elseif j == 2
+                ylabel('$y-\hat{y}$');
+            elseif j == 3
+                ylabel('$z-\hat{z}$');
+            end
+        end
+        subplot(4,2,xyz_plot_num(4,i))
+        hold on
+        for k = 1 : length(X)
+            diff = (X{k}-X_hat{k});
+            T{k} = 0 : Ts : (size(diff,1)-1)*Ts; %TODO: Fix data collection so that T is correct 
+            plot(T{k},vecnorm(diff(:,2:4),2,2))
+        end
+        xlabel('Time (sec)');
+        ylabel('$||p-\hat{p}||$');
+        
+    end
+    
+    saveas(fig,'figures/uav_fit.png') 
+end
+
+function X_hat = predict_x(X, K_pows, C, func_dict)
     %Calculate fit:
     for i = 1 : length(X)
         x0 = X{i}(1,:);
-        [z0,~] = func_dict(x0);
+        z0 = func_dict(x0);
         x_hat = [x0'];
         for j = 1 : size(X{i},1)-1
             x_hat = [x_hat C*K_pows{j}*z0];
         end
         X_hat{i} = x_hat';
     end
-        
-    fig = figure(1);
-    set(groot,'defaulttextinterpreter','latex');  
-    set(groot, 'defaultAxesTickLabelInterpreter','latex');  
-    set(groot, 'defaultLegendInterpreter','latex');
-    
-    
-%     subplot(1,2,1)
-%     ind_x = 3;
-%     ind_y = 4;
-%     hold on
-%     for i = 1 : length(X_hat)
-%         X{i}(:,4) = wrapTo2Pi(X{i}(:,4));
-%         scatter(X{i}(:,ind_x),X{i}(:,ind_y))
-%     end
-%     xlabel('Velocity ($x_3$)');
-%     ylabel('Angle ($x_4$)');
-%     xlim([0 x_bdry(ind_x,2)]);
-%     ylim([x_bdry(ind_y,1) x_bdry(ind_y,2)]);
-%     title('Training data (states)')
-    
-    
-    err_bnd = error_bound(X{1}(1,:)');
-    bound = [0];
-    for k = 1 : N_max
-        bound = [bound err_bnd{k}];
-    end
-    
-    subplot(1,2,2)    
-    hold on
-    tt = 0 : Ts : Ts*(N_max);
-    %plot(tt, bound, '--r', 'lineWidth',2)
-    for i = 1 : length(X_hat)
-        tt = 0 : Ts : Ts*(size(X{i},1)-1);
-        diff = X{i}-X_hat{i};
-        plot(tt, vecnorm(diff(:,2:4),2,2))
-    end
-    xlabel('Time (sec)');
-    ylabel('Prediction error $||x-\hat{x}||$');
-    title('Training error, position states')
-    legend('Error bound')
-    
-    saveas(fig,'figures/uav_training_fit.png') 
-    
-    diff = [];
-    for i = 1 : length(X_hat)
-        diff = [diff X{i}'-X_hat{i}'];
-    end
-    diff = diff.^2;
-    n_data_pts = size(diff,2);
-    se = sum(diff,2)/n_data_pts;
-    disp(se);
 end

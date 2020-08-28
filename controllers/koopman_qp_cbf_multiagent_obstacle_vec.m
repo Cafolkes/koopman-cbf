@@ -39,7 +39,7 @@ function u = koopman_qp_cbf_multiagent_obstacle_vec(x, u0, agent_ind, N, system_
         db_obs_blkdiag = blkdiag(db_obs_cell{:});
         f_ext = repmat(f,N_red,1);
         g_ext = repmat(g,N_red,1);
-        Aineq = [Aineq;-db_obs_blkdiag*qq*g_ext];
+        Aineq = [Aineq;-db_obs_blkdiag*qq*g_ext -ones(N_red,1)];
         bineq = [bineq;alpha*b_obs_red+db_obs_blkdiag*qq*f_ext];
     end
     
@@ -70,21 +70,23 @@ function u = koopman_qp_cbf_multiagent_obstacle_vec(x, u0, agent_ind, N, system_
             db_coll_blkdiag = blkdiag(db_coll_cell{:});
             f_ext = repmat(f,N_red,1);
             g_ext = repmat(g,N_red,1);
-            Aineq = [Aineq;-db_coll_blkdiag*qq*g_ext];
+            Aineq = [Aineq;-db_coll_blkdiag*qq*g_ext -ones(N_red,1)];
             bineq = [bineq;alpha*b_coll_red+db_coll_blkdiag*qq*f_ext];
         end
     end
     
     % Actuator limits:
-    if nargin > 13
-       Aineq = [Aineq;-eye(2);eye(2)]; % [other constraints; lower lim, upper lim]
-       bineq = [bineq;-u_lim(:,1);u_lim(:,2)];
-    end
+    %if nargin > 13
+    %   Aineq = [Aineq;-eye(2);eye(2)]; % [other constraints; lower lim, upper lim]
+    %   bineq = [bineq;-u_lim(:,1);u_lim(:,2)];
+    %end
     
     if isempty(Aineq)
         u = u0;
     else
-        [u,~,~] =qpOASES(eye(2),-u0,Aineq,[],[],[],bineq,options);
-        
+        H = diag([1 1 0]);
+        [res,~,~] = quadprog(H,[-u0;1e5],Aineq,bineq,[],[],[u_lim(:,1);0],[u_lim(:,2);inf],[u0;0],options);
+        %[u,~,~] =qpOASES(eye(2),-u0,Aineq,[],[],[],bineq,options);
+        u = res(1:2);
     end
 end
