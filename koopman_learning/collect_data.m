@@ -12,7 +12,8 @@ function [T,X] = collect_data(sim_dynamics, sim_process, controller, controller_
         [tt,xx] = simulate_sys(x,sim_dynamics,sim_process,controller, controller_process, stop_criterion, ts);  % Simulate backup trajectory from initial value
         if stop_criterion(tt(end),xx(end,:)) && length(tt) > 2
             xx1 = interp1(tt,xx,0:Ts:tt(end));
-            T{i} = tt;
+            tt1 = interp1(tt,tt,0:Ts:tt(end));
+            T{i} = tt1;
             X{i} = xx1;
             i = i+1;
             fprintf('Sample %i generated\n', i-1);
@@ -36,6 +37,5 @@ function [tt,xx] = simulate_sys(x, sim_dynamics, sim_process, controller, contro
         t = t + ts;
         tt = [tt;t];
         xx = [xx;x'];
-        %disp([x(1:3) x(8:10)])
     end
 end
