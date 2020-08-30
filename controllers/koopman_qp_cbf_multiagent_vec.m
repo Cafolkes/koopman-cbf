@@ -1,7 +1,5 @@
-function u = koopman_qp_cbf_multiagent_vec(x, u0, agent_ind, N, system_dynamics, barrier_func_collision, alpha, n_agents, func_dict, K_pows, C, options, u_lim)
+function u = koopman_qp_cbf_multiagent_vec(x, u0, agent_ind, N, system_dynamics, barrier_func_collision, alpha, n_agents, func_dict, K_pows, C, options, u_lim, n, m)
     assert(size(x,2)==n_agents,'Number of agents misspesified');
-    n=4;
-    
     xx = zeros(n_agents,N,n);
     h = 1e-4;
     
@@ -26,7 +24,7 @@ function u = koopman_qp_cbf_multiagent_vec(x, u0, agent_ind, N, system_dynamics,
         x_j = reshape(xx(j,:,:),N,n);
         b = barrier_func_collision(x_i, x_j);
 
-        inds = find(b < 0.5);
+        inds = find(b < 1);
         x_1_red = x_i(inds,:);
         x_2_red = x_j(inds,:);
         qq = blkdiag(QQ{agent_ind,inds});
@@ -35,16 +33,17 @@ function u = koopman_qp_cbf_multiagent_vec(x, u0, agent_ind, N, system_dynamics,
 
         if N_red > 0
             db = zeros(N_red,n);
-            db(:,1) = (barrier_func_collision(x_1_red+[h 0 0 0],x_2_red)-b_red)/h;
-            db(:,2) = (barrier_func_collision(x_1_red+[0 h 0 0],x_2_red)-b_red)/h;
-            db(:,3) = (barrier_func_collision(x_1_red+[0 0 h 0],x_2_red)-b_red)/h;
-            db(:,4) = (barrier_func_collision(x_1_red+[0 0 0 h],x_2_red)-b_red)/h;
-
+            for k = 1 : n
+                x_pert = zeros(1,n);
+                x_pert(k) = h;
+                db(:,k) = (barrier_func_collision(x_1_red+x_pert,x_2_red)-b_red)/h;
+            end
             db_cell = mat2cell(db,ones(1,N_red));
             db_blkdiag = blkdiag(db_cell{:});
             f_ext = repmat(f,N_red,1);
             g_ext = repmat(g,N_red,1);
-            Aineq = [Aineq;-db_blkdiag*qq*g_ext -ones(N_red,1)];
+            %Aineq = [Aineq;-db_blkdiag*qq*g_ext -ones(N_red,1)];
+            Aineq = [Aineq;-db_blkdiag*qq*g_ext];
             bineq = [bineq;alpha*b_red+db_blkdiag*qq*f_ext];
         end
     end
@@ -52,9 +51,12 @@ function u = koopman_qp_cbf_multiagent_vec(x, u0, agent_ind, N, system_dynamics,
     if isempty(Aineq)
         u = u0;
     else
-        H = diag([1 1 0]);
-        [res,~,~] = quadprog(H,[-u0;1e5],Aineq,bineq,[],[],[u_lim(:,1);0],[u_lim(:,2);inf],[u0;0],options);
-        %[u,~,~] =qpOASES(eye(2),-u0,Aineq,[],[],[],bineq,options);
-        u = res(1:2);
+        %H = diag([1 1 0]);
+        %[res,~,~] = quadprog(H,[-u0;1e5],Aineq,bineq,[],[],[u_lim(:,1);0],[u_lim(:,2);inf],[u0;0],options);
+        [u,~,flag] = qpOASES(eye(m),-u0,Aineq,u_lim(:,1),u_lim(:,2),[],bineq,options);
+        if flag ~= 0
+            disp('Infeasible')
+        end
+        %u = res(1:2);
     end
 end

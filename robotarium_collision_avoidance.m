@@ -11,14 +11,14 @@ n_passes = 2;                                       % Number of times to travel 
 radius_waypoints = 0.8;                             % Radius of circle where waypoints are placed
 start_angles = linspace(0,2*pi-(2*pi/N),N);         % Angle of ray where each robot is placed initially
 end_angles = wrapTo2Pi(start_angles + pi);          % Angle of ray where each robot has final position
-koopman_file = 'dubin_learned_koopman.mat';         % File containing learned Koopman model
+koopman_file = 'data/dubin_learned_koopman.mat';         % File containing learned Koopman model
 r_margin = 0.14;                                    % Minimum distance between robot center points                
 alpha = 1;                                          % CBF strengthening term
 obs = [0;0];                                        % Center of obstacle
 r_circ = 0.2;                                       % Radius of obstacle (- r_margin)
 
 % Data storage:
-file_name = 'collision_avoidance.mat';              % File to save data matrices
+file_name = 'data/collision_avoidance.mat';              % File to save data matrices
 for i = 1 : N
     x_data{i} = [];                                 % Store state of each robot
     backup_data{i} = [];                            % Store difference between legacy and supervisory controller (norm(u0-u))
@@ -46,14 +46,15 @@ controller = create_si_position_controller();           % Legacy controller (gre
 
 % Construct Koopman CBF supervisory controller:
 load(koopman_file)
-%options = qpOASES_options('printLevel',0);              % Solver options for supervisory controller
-options = optimoptions('quadprog','Display','none');
+func_dict = @(x) dubin_D(x(1),x(2),x(3),x(4));
+options = qpOASES_options('printLevel',0);              % Solver options for supervisory controller
+%options = optimoptions('quadprog','Display','none');
 affine_dynamics = @(x) dubin(x);                        % System dynamics, returns [f,g] with x_dot = f(x) + g(x)u
                                                         % State is defined as x = [X,Y,v,theta], u = [a,r]
 dt = r.time_step;
 u_lim = [-0.1 0.1; - 2*pi/3, 2*pi/3];
 barrier_func_collision = @(x_1, x_2) collision_avoidance_vec(x_1,x_2,r_margin);                   
-supervisory_controller = @(x,u0,agent_ind) koopman_qp_cbf_multiagent_vec(x, u0, agent_ind, N_max, affine_dynamics, barrier_func_collision, alpha, N, func_dict, K_pows, C, options, u_lim);
+supervisory_controller = @(x,u0,agent_ind) koopman_qp_cbf_multiagent_vec(x, u0, agent_ind, N_max, affine_dynamics, barrier_func_collision, alpha, N, func_dict, K_pows, C, options, u_lim,4,2);
 
 % Get initial location data for while loop condition.
 x=r.get_poses();

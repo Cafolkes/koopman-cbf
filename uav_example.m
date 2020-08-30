@@ -41,14 +41,14 @@ initial_condition = @() generate_initial_state_uav();
 
 %Koopman learning parameters:
 n = 13;
-func_dict = @(x) uav_D(x(1),x(2),x(3),x(4),x(5),x(6),x(7),x(8),x(9),x(10),...
-         x(11),x(12),x(13));         % Function dictionary, returns [D,J] = [dictionary, jacobian of dictionary]
-%func_dict = @(x) poly_D_13_2(x(1),x(2),x(3),x(4),x(5),x(6),x(7),x(8),x(9),x(10),...
+%func_dict = @(x) uav_D(x(1),x(2),x(3),x(4),x(5),x(6),x(7),x(8),x(9),x(10),...
 %         x(11),x(12),x(13));         % Function dictionary, returns [D,J] = [dictionary, jacobian of dictionary]
+func_dict = @(x) poly_D_13_2(x(1),x(2),x(3),x(4),x(5),x(6),x(7),x(8),x(9),x(10),...
+         x(11),x(12),x(13));         % Function dictionary, returns [D,J] = [dictionary, jacobian of dictionary]
 
 n_samples = 100;                                         % Number of initial conditions to sample for training
 gather_data = false;
-tune_fit = true;
+tune_fit = false;
 
 %% Learn approximated discrete-time Koopman operator:
 
@@ -60,9 +60,9 @@ if gather_data == true
     for i = 1 : length(X_train)
         X_train{i} = X_train{i}(:,1:n);
     end
-    save('training_data.mat', 'T_train','X_train');
+    save('data/training_data.mat', 'T_train','X_train');
 else
-    load('training_data.mat');
+    load('data/training_data.mat');
 end
 
 [Z, ~] = lift_data(X_train,func_dict);
@@ -78,9 +78,9 @@ end
 Z_p = Z_p(5:end,:);
 if tune_fit == true
     [K, obj_vals, lambda_tuned] = edmd(Z, Z_p, 'lasso', true, [],true, 3);
-    save('lambda_tuned_feat_eng.mat', 'lambda_tuned');
+    save('data/lambda_tuned_feat_eng.mat', 'lambda_tuned');
 else
-    load('lambda_tuned.mat');
+    load('data/lambda_tuned.mat');
     [K, obj_vals, ~] = edmd(Z, Z_p, 'lasso', true, lambda_tuned,false, 0);
 end
 %%
@@ -113,9 +113,9 @@ if gather_data == true
     for i = 1 : length(X_test)
         X_test{i} = X_test{i}(:,1:n);
     end
-    save('test_data.mat', 'T_test','X_test');
+    save('data/test_data.mat', 'T_test','X_test');
 else
-    load('test_data.mat');
+    load('data/test_data.mat');
 end
 
 % Training data fit:

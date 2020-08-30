@@ -11,14 +11,14 @@ n_passes = 2;                                       % Number of times to travel 
 radius_waypoints = 0.8;                             % Radius of circle where waypoints are placed
 start_angles = linspace(0,2*pi-(2*pi/N),N);         % Angle of ray where each robot is placed initially
 end_angles = wrapTo2Pi(start_angles + pi);          % Angle of ray where each robot has final position
-koopman_file = 'dubin_learned_koopman.mat';         % File containing learned Koopman model
+koopman_file = 'data/dubin_learned_koopman.mat';         % File containing learned Koopman model
 r_margin = 0.23;                                    % Minimum distance between robot center points                
 alpha = 1;                                          % CBF strengthening term
 obs = [-0.3 0.1];                                   % Center of obstacle
 r_obs = 0.2;                                        % Radius of obstacle (- r_margin)
 
 % Data storage:
-file_name = 'collision_obstacle_avoidance.mat';     % File to save data matrices
+file_name = 'data/collision_obstacle_avoidance.mat';     % File to save data matrices
 for i = 1 : N
     x_data{i} = [];                                 % Store state of each robot
     backup_data{i} = [];                            % Store difference between legacy and supervisory controller (norm(u0-u))
