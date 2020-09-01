@@ -1,8 +1,8 @@
-clc; clf; clear; close all;
+clc; clf; clear; close all; addpath('../../koopman_cbf_robotarium_submission/data')
 
-obstacle_avoidance_f = 'data/obstacle_avoidance.mat';
-collision_avoidance_f = 'data/collision_avoidance.mat';
-collision_obstacle_avoidance_f = 'data/collision_obstacle_avoidance.mat';
+obstacle_avoidance_f = 'obstacle_avoidance_1.mat';
+collision_avoidance_f = 'collision_avoidance_6.mat';
+collision_obstacle_avoidance_f = 'collision_obstacle_avoidance_12.mat';
 f_num = 1;
 lw = 2;
 ss = 40;
@@ -37,7 +37,7 @@ if exist('obstacle_avoidance_f','var') && ~isempty(obstacle_avoidance_f)
     set(gca,'FontSize',fs)
     
     fig_name = strcat(obstacle_avoidance_f(6:end-4),'.png');
-    saveas(fig,strcat('figures/',fig_name));
+    saveas(fig,strcat('../figures/',fig_name));
     f_num = f_num + 1;
 end
 
@@ -90,7 +90,7 @@ if exist('collision_avoidance_f','var') && ~isempty(collision_avoidance_f)
     set(gca,'FontSize',fs)
     
     fig_name = strcat(collision_avoidance_f(6:end-4),'.png');
-    saveas(fig,strcat('figures/',fig_name));
+    saveas(fig,strcat('../figures/',fig_name));
     f_num = f_num + 1;
 end
 
@@ -106,6 +106,7 @@ if exist('collision_obstacle_avoidance_f','var') && ~isempty(collision_obstacle_
     
     legend_plots = [];
     legend_entries = [];
+    n_stop = [1155 1232 1200 1170 1170];
     for i = 1 : length(x_data)
         X = x_data{i};
         backup_val = backup_data{i};
@@ -114,7 +115,7 @@ if exist('collision_obstacle_avoidance_f','var') && ~isempty(collision_obstacle_
         X_final = x_final_data{i};
         n_data_pts = size(X,2);
 
-        legend_plots = [legend_plots plot(X(1,:),X(2,:),'Color', colors(i,:),'Linewidth',lw)];
+        legend_plots = [legend_plots plot(X(1,1:n_stop(i)),X(2,1:n_stop(i)),'Color', colors(i,:),'Linewidth',lw)];
         legend_entries = [legend_entries strcat("Robot ",num2str(i))];
         %legend_plots = [legend_plots scatter(X(1,backup_active), X(2,backup_active),5,colors(i,:),'*')];
         %legend_entries = [legend_entries "CBF active"];
@@ -133,7 +134,7 @@ if exist('collision_obstacle_avoidance_f','var') && ~isempty(collision_obstacle_
     draw_circle(obs(1),obs(2),r_obs-r_margin/2, 'k')
     
     %axis equal
-    title('Koopman CBF multi-robot collision and obstacle avoidance')
+    %title('Koopman CBF multi-robot collision and obstacle avoidance')
     xlabel('x-coordinate (m)')
     ylabel('y-coordinate (m)')
     xlim([axis_min-plot_margin_x axis_max]);
@@ -144,7 +145,7 @@ if exist('collision_obstacle_avoidance_f','var') && ~isempty(collision_obstacle_
     set(gca,'FontSize',fs)
     
     fig_name = strcat(collision_obstacle_avoidance_f(6:end-4),'.png');
-    saveas(fig,strcat('figures/',fig_name));
+    saveas(fig,strcat('../figures/',fig_name));
     f_num = f_num + 1;
 end
         
