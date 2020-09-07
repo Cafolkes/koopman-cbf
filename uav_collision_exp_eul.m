@@ -43,8 +43,8 @@ alpha = 7.5;                                                % CBF strengthening 
 
 load(koopman_file)
 func_dict = @(x) uav_D_eul(x(1),x(2),x(3),x(4),x(5),x(6),x(7),x(8),x(9),x(10),x(11),x(12),x(13),x(14),x(15),x(16));
-%options = qpOASES_options('printLevel',0);              % Solver options for supervisory controller
-options = optimoptions('quadprog','Display','none');
+options = qpOASES_options('printLevel',0);              % Solver options for supervisory controller
+%options = optimoptions('quadprog','Display','none');
 affine_dynamics = @(x) UAVDynamics_eul(x);                  % System dynamics, returns [f,g] with x_dot = f(x) + g(x)u
                                                         % State is defined as x = [p,q,v,w,Omega], u = [V1,V2,V3,V4]
 barrier_func = @(x1,x2) collision_avoidance_3d_vec(x1,x2,r_margin);             % Barrier function

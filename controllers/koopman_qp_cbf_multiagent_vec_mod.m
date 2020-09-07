@@ -1,4 +1,4 @@
-function u = koopman_qp_cbf_multiagent_vec_mod(x, u0, agent_ind, N, system_dynamics, backup_dynamics, barrier_func_collision, alpha, n_agents, func_dict, K_pows, C, options, u_lim, n, m)
+function u = koopman_qp_cbf_multiagent_vec_mod(x, u0, agent_ind, N, system_dynamics, backup_dynamics, barrier_func_collision, alpha, n_agents, func_dict, CK_pows, options, u_lim, n, m)
     assert(size(x,2)==n_agents,'Number of agents misspesified');
     xx = zeros(n_agents,N,n);
     h = 1e-4;
@@ -6,8 +6,8 @@ function u = koopman_qp_cbf_multiagent_vec_mod(x, u0, agent_ind, N, system_dynam
     for i = 1 : n_agents
         [d,J] = func_dict(x(:,i));
         for k=1:N
-            xx(i,k,:)=(C*K_pows{k}*d)';
-            QQ{i,k} = C*K_pows{k}*J;
+            xx(i,k,:)=(CK_pows{k}*d)';
+            QQ{i,k} = CK_pows{k}*J;
         end
     end
     

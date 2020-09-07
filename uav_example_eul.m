@@ -12,7 +12,7 @@ Ts = 0.01;                                               % Sampling interval
 T_max = 1;
 N_max = ceil(T_max/Ts);
 ts = 1e-3;                                              % Simulator time interval
-x_bdry = [-1 1; -1 1; 1 3;                              % Position limits (m)
+x_bdry = [-1 1; -1 1; 0.2 2;                              % Position limits (m)
     -pi/6 pi/6; -pi/6 pi/6; -pi/12 pi/12;                     % Attitude limits (in euler angles XYZ) (rad)
     -1 1; -1 1; -1 1;                                   % Linear velocity limits (m/s)
     -pi/12 pi/12; -pi/12 pi/12; -pi/12 pi/12;                 % Angular velocity limits (rad/s)
@@ -30,20 +30,21 @@ V_min = 0.5;
 hoverT = 0.5126*V_max; %0.52
 Omega_hover = 497.61*ones(4,1);
 M = [KpVxy; KpVz; KpAtt; KdAtt; KpOmegaz; hoverT];      % Backup controller parameters
+z_land = 0.05;
 
 affine_dynamics = @(x) UAVDynamics_eul(x);                  % System dynamics, returns [f,g] with x_dot = f(x) + g(x)u
 backup_controller = @(x) backupU_eul(x,M);                  % Backup controller (go to hover)
 controller_process = @(u) min(max(real(u),V_min*ones(4,1)),V_max*ones(4,1));
-stop_crit1 = @(t,x)(norm(x(7:12))<=5e-2);               % Stop if velocity is zero
-sim_dynamics = @(x,u) sim_uav_dynamics(x,u,config,false);     % Closed loop dynamics under backup controller
+stop_crit1 = @(t,x)(norm(x(7:12))<=5e-2 || x(3) <= z_land);               % Stop if velocity is zero
+sim_dynamics = @(x,u) sim_uav_dynamics(x,u,config,false,true);     % Closed loop dynamics under backup controller
 sim_process = @(x,ts) x;                                % Processing of state data while simulating
 initial_condition = @() generate_initial_state_uav(false);
+fname = 'uav_ge';
 
 %Koopman learning parameters:
 n = 16;
-func_dict = @(x) uav_D_eul(x(1),x(2),x(3),x(4),x(5),x(6),x(7),x(8),x(9),x(10),...
+func_dict = @(x) uav_D_eul_ge(x(1),x(2),x(3),x(4),x(5),x(6),x(7),x(8),x(9),x(10),...
          x(11),x(12),x(13),x(14),x(15),x(16));         % Function dictionary, returns [D,J] = [dictionary, jacobian of dictionary]
-
 
 n_samples = 250;                                         % Number of initial conditions to sample for training
 gather_data = true;
@@ -59,9 +60,9 @@ if gather_data == true
     for i = 1 : length(X_train)
         X_train{i} = X_train{i}(:,1:n);
     end
-    save('data/training_data_eul.mat', 'T_train','X_train');
+    save(['data/' fname '_train_data.mat'], 'T_train','X_train');
 else
-    load('data/training_data_eul.mat');
+    load(['data/' fname '_train_data.mat']);
 end
 
 %[Z, Z_p] = lift_data(X_train,func_dict,A_nom);
@@ -69,10 +70,10 @@ end
 
 Z_p = Z_p(5:end,:);
 if tune_fit == true
-    [K, obj_vals, lambda_tuned] = edmd(Z, Z_p, 'lasso', true, [],true, 3);
-    save('data/lambda_tuned_eul.mat', 'lambda_tuned');
+    [K, obj_vals, lambda_tuned] = edmd(Z, Z_p, 'lasso', true, [],true, 5);
+    save(['data/' fname 'lambda_tuned.mat'], 'lambda_tuned');
 else
-    load('data/lambda_tuned_eul.mat');
+    load(['data/' fname 'lambda_tuned.mat']);
     %lambda_tuned = 1e-3*ones(n_lift,1);
     [K, obj_vals, ~] = edmd(Z, Z_p, 'lasso', true, lambda_tuned,false, 0);
 end
@@ -105,9 +106,9 @@ if gather_data == true
     for i = 1 : length(X_test)
         X_test{i} = X_test{i}(:,1:n);
     end
-    save('data/test_data_full.mat', 'T_test','X_test');
+    save(['data/' fname '_test_data.mat'], 'T_test','X_test');
 else
-    load('data/test_data_full.mat');
+    load(['data/' fname '_test_data.mat']);
 end
 
 % Training data fit:
@@ -122,9 +123,9 @@ for i = 1 : 6
     fprintf('The MSE of $x_%i$ is: %.8f \n', i+6, obj_vals(i+3))
 end
 
-plot_fit_uav(T_train, X_train, T_test, X_test, K_pows, C, func_dict, error_bound, N_max);
+plot_fit_uav(T_train, X_train, T_test, X_test, K_pows, C, func_dict, error_bound, N_max, fname);
 
-save('data/uav_learned_koopman_eul.mat', 'K_pows', 'CK_pows', 'C', 'N_max');
+save(['data/' fname '_learned_koopman.mat'], 'K_pows', 'CK_pows', 'C', 'N_max');
 
 
 %% Supporting functions:
@@ -180,7 +181,7 @@ function plot_training_data(X,n_samples)
     end
 end
 
-function plot_fit_uav(T_train, X_train, T_test, X_test, K_pows, C, func_dict, error_bound, N_max)
+function plot_fit_uav(T_train, X_train, T_test, X_test, K_pows, C, func_dict, error_bound, N_max, fname)
     global Ts x_bdry
     
     X_train_hat = predict_x(X_train, K_pows, C, func_dict);
@@ -237,7 +238,7 @@ function plot_fit_uav(T_train, X_train, T_test, X_test, K_pows, C, func_dict, er
         
     end
     
-    saveas(fig,'figures/uav_fit.png') 
+    saveas(fig,['figures/' fname '_fit.png']) 
 end
 
 function X_hat = predict_x(X, K_pows, C, func_dict)

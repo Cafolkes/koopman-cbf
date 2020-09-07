@@ -1,8 +1,9 @@
-function [T,X] = collect_data(sim_dynamics, sim_process, controller, controller_process, stop_criterion, initial_condition, n_samples, ts)
+function [T,X] = collect_data(sim_dynamics, sim_process, controller, controller_process, stop_criterion, initial_condition, n_samples, ts, T_max)
     global Ts;
     
     if nargin<8
         ts = 0.02;
+        T_max = 20;
     end
     disp('Collecting data...')
     X = {};

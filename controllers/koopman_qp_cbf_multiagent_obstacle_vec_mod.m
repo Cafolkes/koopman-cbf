@@ -1,6 +1,5 @@
-function u = koopman_qp_cbf_multiagent_obstacle_vec_mod(x, u0, agent_ind, N, system_dynamics, backup_dynamics, barrier_func_obstacle, barrier_func_collision, alpha, n_agents, func_dict, K_pows, C, options, u_lim)
+function u = koopman_qp_cbf_multiagent_obstacle_vec_mod(x, u0, agent_ind, N, system_dynamics, backup_dynamics, barrier_func_obstacle, barrier_func_collision, alpha, n_agents, func_dict, CK_pows, options, u_lim,n,m)
  assert(size(x,2)==n_agents,'Number of agents misspesified');
-    n=4;
     
     xx = zeros(n_agents,N,n);
     h = 1e-4;
@@ -8,8 +7,8 @@ function u = koopman_qp_cbf_multiagent_obstacle_vec_mod(x, u0, agent_ind, N, sys
     for i = 1 : n_agents
         [d,J] = func_dict(x(:,i));
         for k=1:N
-            xx(i,k,:)=(C*K_pows{k}*d)';
-            QQ{i,k} = C*K_pows{k}*J;
+            xx(i,k,:)=(CK_pows{k}*d)';
+            QQ{i,k} = CK_pows{k}*J;
         end
     end
     
@@ -27,14 +26,15 @@ function u = koopman_qp_cbf_multiagent_obstacle_vec_mod(x, u0, agent_ind, N, sys
     x_i_red = x_i(inds,:);
     qq = blkdiag(QQ{agent_ind,inds});
     b_obs_red = b_obs(inds);
-    N_red = size(inds,1);
+    N_red = size(inds,1);    
 
     if N_red > 0
         db_obs = zeros(N_red,n);
-        db_obs(:,1) = (barrier_func_obstacle(x_i_red+[h 0 0 0])-b_obs_red)/h;
-        db_obs(:,2) = (barrier_func_obstacle(x_i_red+[0 h 0 0])-b_obs_red)/h;
-        db_obs(:,3) = (barrier_func_obstacle(x_i_red+[0 0 h 0])-b_obs_red)/h;
-        db_obs(:,4) = (barrier_func_obstacle(x_i_red+[0 0 0 h])-b_obs_red)/h;
+        for k = 1 : n
+            x_pert = zeros(1,n);
+            x_pert(k) = h;
+            db_obs(:,k) = (barrier_func_obstacle(x_i_red+x_pert)-b_obs_red)/h;
+        end
 
         db_obs_cell = mat2cell(db_obs,ones(1,N_red));
         db_obs_blkdiag = blkdiag(db_obs_cell{:});
@@ -54,19 +54,20 @@ function u = koopman_qp_cbf_multiagent_obstacle_vec_mod(x, u0, agent_ind, N, sys
         b_coll = barrier_func_collision(x_i, x_j);
 
         inds = find(b_coll < 1);
-        x_1_red = x_i(inds,:);
-        x_2_red = x_j(inds,:);
+        x_i_red = x_i(inds,:);
+        x_j_red = x_j(inds,:);
         qq = blkdiag(QQ{agent_ind,inds});
         b_coll_red = b_coll(inds);
         N_red = size(inds,1);
 
         if N_red > 0
             db_coll = zeros(N_red,n);
-            db_coll(:,1) = (barrier_func_collision(x_1_red+[h 0 0 0],x_2_red)-b_coll_red)/h;
-            db_coll(:,2) = (barrier_func_collision(x_1_red+[0 h 0 0],x_2_red)-b_coll_red)/h;
-            db_coll(:,3) = (barrier_func_collision(x_1_red+[0 0 h 0],x_2_red)-b_coll_red)/h;
-            db_coll(:,4) = (barrier_func_collision(x_1_red+[0 0 0 h],x_2_red)-b_coll_red)/h;
-
+            for k = 1 : n
+                x_pert = zeros(1,n);
+                x_pert(k) = h;
+                db_coll(:,k) = (barrier_func_collision(x_i_red+x_pert,x_j_red)-b_coll_red)/h;
+            end
+            
             db_coll_cell = mat2cell(db_coll,ones(1,N_red));
             db_coll_blkdiag = blkdiag(db_coll_cell{:});
             f_ext = repmat((f-f_cl),N_red,1);
@@ -76,18 +77,19 @@ function u = koopman_qp_cbf_multiagent_obstacle_vec_mod(x, u0, agent_ind, N, sys
         end
     end
     
-    % Actuator limits:
-    %if nargin > 13
-    %   Aineq = [Aineq;-eye(2);eye(2)]; % [other constraints; lower lim, upper lim]
-    %   bineq = [bineq;-u_lim(:,1);u_lim(:,2)];
-    %end
+    nonzero_inds = find(all(Aineq(:,1:m),2));
+    Aineq = Aineq(nonzero_inds,:);
+    bineq = bineq(nonzero_inds);
     
     if isempty(Aineq)
         u = u0;
     else
-        H = diag([1 1 0]);
+        H = diag([ones(1,m) 0]);
         [res,~,~] = quadprog(H,[-u0;1e5],Aineq,bineq,[],[],[u_lim(:,1);0],[u_lim(:,2);inf],[u0;0],options);
         %[u,~,~] =qpOASES(eye(2),-u0,Aineq,[],[],[],bineq,options);
-        u = res(1:2);
+        u = res(1:m);
+        %if res(m+1) > 1e-2
+            %disp(strcat('infeasible, agent',num2str(agent_ind)))
+        %end
     end
 end
