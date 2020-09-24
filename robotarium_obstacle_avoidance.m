@@ -2,28 +2,28 @@
 % This script shows how to initialize robots to a particular point.
 % Sean Wilson
 % 07/2019
-close all; clc; addpath('controllers','dynamics','koopman_learning','utils','data','utils/qpOASES-3.1.0/interfaces/matlab');
+close all; clc; 
 
 % Experiment parameters:
-n = 3;                                              % Number of states (unicycle model)
-N = 1;                                              % Number of robots
-n_passes = 2;                                       % Number of times to travel between waypoints
-radius_waypoints = 0.8;                             % Radius of circle where waypoints are placed
-start_angles = linspace(0,2*pi-(2*pi/N),N);         % Angle of ray where each robot is placed initially
-end_angles = wrapTo2Pi(start_angles + pi);          % Angle of ray where each robot has final position
-koopman_file = 'dubin_learned_koopman.mat';         % File containing learned Koopman model
-r_margin = 0.08;                                    % Minimum distance between robot center points                
-alpha = 1;                                          % CBF strengthening term
-obs = [0;0];                                        % Center of obstacle
-r_obs = 0.2;                                       % Radius of obstacle (- r_margin)
+n = 3;                                                  % Number of states 
+N = 1;                                                  % Number of robots
+n_passes = 2;                                           % Number of times to travel between waypoints
+radius_waypoints = 0.8;                                 % Radius of circle where waypoints are placed
+start_angles = linspace(0,2*pi-(2*pi/N),N);             % Angle of ray where each robot is placed initially
+end_angles = wrapTo2Pi(start_angles + pi);              % Angle of ray where each robot has final position
+koopman_file = 'data/dubin_learned_koopman.mat';             % File containing learned Koopman model
+r_margin = 0.06;                                        % Minimum distance between robot center points                
+alpha = 1;                                              % CBF strengthening term
+obs = [0;0];                                            % Center of obstacle
+r_obs = 0.2;                                            % Radius of obstacle (- r_margin)
 
 % Data storage:
-file_name = 'obstacle_avoidance.mat';               % File to save data matrices
+file_name = 'data/obstacle_avoidance.mat';                   % File to save data matrices
 for i = 1 : N
-    x_data{i} = [];                                 % Store state of each robot
-    backup_data{i} = [];                            % Store difference between legacy and supervisory controller (norm(u0-u))
-    x_init_data{i} = [];                                 % Store initial point
-    x_final_data{i} = [];                                % Store final point
+    x_data{i} = [];                                     % Store state of each robot
+    backup_data{i} = [];                                % Store difference between legacy and supervisory controller (norm(u0-u))
+    x_init_data{i} = [];                                % Store initial point
+    x_final_data{i} = [];                               % Store final point
 end
 
 % Generate intial and final positions:
@@ -45,15 +45,23 @@ controller = create_si_position_controller();           % Legacy controller (gre
 
 % Construct Koopman CBF supervisory controller:
 load(koopman_file)
-options = qpOASES_options('printLevel',0);              % Solver options for supervisory controller
+func_dict = @(x) dubin_D(x(1),x(2),x(3),x(4));
+options = optimoptions('quadprog','Display','none');    % Solver options for supervisory controller
 affine_dynamics = @(x) dubin(x);                        % System dynamics, returns [f,g] with x_dot = f(x) + g(x)u
                                                         % State is defined as x = [X,Y,v,theta], u = [a,r]
 dt = r.time_step;
 u_lim = [-r.max_linear_velocity/dt r.max_linear_velocity/dt; - pi, pi];
 draw_circle(obs(1),obs(2),r_obs-r_margin);
 barrier_func = @(x) round_obs(x,obs,r_obs);             % Barrier function
-supervisory_controller = @(x,u0) koopman_qp_cbf_static(x, u0, N_max, affine_dynamics, barrier_func, alpha, func_dict, K_pows, C, options, u_lim);
-
+rm = 3*pi/2;                                            % Maximum yaw rate
+am = 0.1;                                               % Maximum acceleration
+backup_controller = @(x) [-am*sign(x(3));rm];           % Backup controller (max brake and max turn)
+backup_dynamics = @(x) cl_dynamics(x,affine_dynamics, backup_controller);
+for i = 1 : size(K_pows,2)
+    CK_pows{i} = C*K_pows{i};
+end
+%supervisory_controller = @(x,u0) koopman_qp_cbf_coll_static(x, u0, N_max, affine_dynamics, backup_dynamics, barrier_func, alpha, func_dict, CK_pows, options, u_lim);
+supervisory_controller = @(x,u0) koopman_qp_cbf_obs(x, u0, N_max, affine_dynamics, backup_dynamics, barrier_func, alpha, func_dict, CK_pows, options,u_lim,4,2);
 % Get initial location data for while loop condition.
 x=r.get_poses();
 r.step();
@@ -89,6 +97,14 @@ for l = 1:n_passes
         vd_est = v_est + u_barrier(1)*dt;
         
         dxu = [vd_est; u_barrier(2)];
+        
+        % Threshold values to avoid actuator errors:
+        max_frac_lin = 3/4;
+        max_frac_ang = 1/4;
+        dxu(1,:) = min(dxu(1,:),ones(1,N)*r.max_linear_velocity*max_frac_lin);
+        dxu(1,:) = max(dxu(1,:),zeros(1,N));
+        dxu(2,:) = min(dxu(2,:),ones(1,N)*r.max_angular_velocity*max_frac_ang);
+        dxu(2,:) = max(dxu(2,:),-ones(1,N)*r.max_angular_velocity*max_frac_ang);
    
         r.set_velocities(1:N, dxu);
         r.step();   

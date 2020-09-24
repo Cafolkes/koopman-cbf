@@ -1,30 +1,36 @@
-function X = collect_data(sim_dynamics, sim_process, controller, stop_criterion, n_samples)
-    %State is defined as x = [X,Y,v,theta], u = [a,r]
-    global Ts x_bdry;
-
+function [T,X] = collect_data(sim_dynamics, sim_process, controller, controller_process, stop_criterion, initial_condition, n_samples, ts, T_max)
+    global Ts;
+    
+    if nargin<8
+        ts = 0.02;
+        T_max = 20;
+    end
+    disp('Collecting data...')
     X = {};
-
-    for i=1:n_samples
-        x = x_bdry(:,1)+(x_bdry(:,2)-x_bdry(:,1)).*rand(4,1);  % Sample random initial value of x inside x_bdry
-        [tt,xx] = simulate_sys(x,sim_dynamics,sim_process,controller,stop_criterion);  % Simulate backup trajectory from intial value
-        xx1 = interp1(tt,xx,0:Ts:tt(end));
-        X{i} = xx1;
+    i = 1;
+    while i <= n_samples
+        x = initial_condition();
+        [tt,xx] = simulate_sys(x,sim_dynamics,sim_process,controller, controller_process, stop_criterion, ts);  % Simulate backup trajectory from initial value
+        if stop_criterion(tt(end),xx(end,:)) && length(tt) > 2
+            xx1 = interp1(tt,xx,0:Ts:tt(end));
+            tt1 = interp1(tt,tt,0:Ts:tt(end));
+            T{i} = tt1;
+            X{i} = xx1;
+            i = i+1;
+            fprintf('Sample %i generated\n', i-1);
+        end
     end
 end
 
-function [tt,xx] = simulate_sys(x, sim_dynamics, sim_process, controller, stop_criterion, ts)
-    %global vm am Ts    
-    if nargin<6
-        ts = 0.02;
-    end
-    
+function [tt,xx] = simulate_sys(x, sim_dynamics, sim_process, controller, controller_process, stop_criterion, ts)
+    global T_max
     t = 0;
     tt = 0;
     xx = x';
-
-    while ~stop_criterion(t,x)
-    %for i = 1 : ceil(vm/am/Ts)
+    
+    while ~stop_criterion(t,x) && t < T_max
         u = controller(x);
+        u = controller_process(u);
         xdot = @(t,x) sim_dynamics(x,u);
         [~, x_tmp] = ode45(xdot,[t,t+ts],x);
         x = x_tmp(end,:)';

@@ -55,5 +55,4 @@ function plot_training_fit(X, K_pows, C, func_dict, error_bound)
     
     saveas(fig,'figures/training_fit.png')
     
-
 end

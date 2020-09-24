@@ -1,4 +1,4 @@
-function xdot = dubin_sim(x,u)
+function xdot = dubin_sim(x, u)
     global vm
     [f,g] = dubin(x);
     xdot = f+g*u;
