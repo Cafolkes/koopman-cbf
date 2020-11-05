@@ -11,7 +11,7 @@ global Ts T_max vm rm am x_bdry
 Ts = 0.1;                                           % Sampling interval
 T_max = 2;
 vm = 0.15;                                          % Maximum velocity
-rm = 0.3*3*pi/2;                                        % Maximum yaw rate
+rm = pi;                                        % Maximum yaw rate
 am = 0.1;                                           % Maximum acceleration
 u_lim = [-am am; -rm, rm];
 x_bdry = [-1.6 1.6;-1 1;vm vm;0 2*pi];              % State constraints
@@ -33,8 +33,8 @@ initial_condition = @() x_bdry(:,1)+...
 %dubin_dictionary;                                  % Generate dictionary for Dubin's car system
 func_dict = @(x) dubin_D(x(1),x(2),x(3),x(4));      % Function dictionary, returns [D,J] = [dictionary, jacobian of dictionary]
 n_samples = 100;                                    % Number of initial conditions to sample for training
-gather_data = false;
-tune_fit = false;
+gather_data = true;
+tune_fit = true;
 fname = 'dubin';
 
 %Collision avoidance experiment parameters:
@@ -61,16 +61,17 @@ else
 end
 
 [Z, Z_p] = lift_data(X_train, func_dict);
+Z_p = Z_p - Z;
 Z_p = Z_p(2:end,:);
 if tune_fit == true
-    [K, obj_vals, lambda_tuned] = edmd(Z, Z_p, 'lasso', true, [],true, 5);
+    [K, obj_vals, lambda_tuned] = edmd(Z, Z_p, 'lasso', true, [], true, 5);
     save(['data/' fname 'lambda_tuned.mat'], 'lambda_tuned');
 else
     load(['data/' fname 'lambda_tuned.mat']);
-    [K, obj_vals, ~] = edmd(Z, Z_p, 'lasso', true, lambda_tuned,false, 0);
+    [K, obj_vals, ~] = edmd(Z, Z_p, 'lasso', true, lambda_tuned, false, 0);
 end
 K = [zeros(1,size(Z,1)); K];
-K(1,1) = 1;
+K = K + eye(size(K,1));
 
 %% Prepare necessary matrices and calculate error bounds:
 [~,~,C] = func_dict(X_train{1}(1,:));

@@ -53,13 +53,13 @@ dt = r.time_step;
 u_lim = [-r.max_linear_velocity/dt r.max_linear_velocity/dt; - pi, pi];
 draw_circle(obs(1),obs(2),r_obs-r_margin);
 barrier_func = @(x) round_obs(x,obs,r_obs);             % Barrier function
-rm = 3*pi/2;                                            % Maximum yaw rate
+rm = pi;                                            % Maximum yaw rate
 am = 0.1;                                               % Maximum acceleration
 backup_controller = @(x) [-am*sign(x(3));rm];           % Backup controller (max brake and max turn)
 backup_dynamics = @(x) cl_dynamics(x,affine_dynamics, backup_controller);
-for i = 1 : size(K_pows,2)
-    CK_pows{i} = C*K_pows{i};
-end
+%for i = 1 : size(K_pows,2)
+%    CK_pows{i} = C*K_pows{i};
+%end
 %supervisory_controller = @(x,u0) koopman_qp_cbf_coll_static(x, u0, N_max, affine_dynamics, backup_dynamics, barrier_func, alpha, func_dict, CK_pows, options, u_lim);
 supervisory_controller = @(x,u0) koopman_qp_cbf_obs(x, u0, N_max, affine_dynamics, backup_dynamics, barrier_func, alpha, func_dict, CK_pows, options,u_lim,4,2);
 % Get initial location data for while loop condition.
