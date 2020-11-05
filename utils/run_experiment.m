@@ -13,7 +13,7 @@ function [x_rec, u_rec, u0_rec] = run_experiment(x0, sim_dynamics, sim_process, 
         
         N = ceil(x(3)/am/Ts);
         u = supervisory_controller(x,u0,N);
-        
+        disp([u0 u])
         xdot = @(t,x) sim_dynamics(x,u);
         [~, x_tmp] = ode45(xdot,[t,t+Ts],x);
         x = x_tmp(end,:)';

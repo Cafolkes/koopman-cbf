@@ -1,9 +1,9 @@
-function plot_experiment(x_rec, u_rec, u0_rec, func_dict, K_pows, C)
+function plot_experiment(x_rec, u_rec, u0_rec, func_dict, CK_pows)
 
     global Ts am T_exp obs r
     
     for i=1:round(T_exp/Ts)
-        figure(3)
+        figure(4)
         clf
         hold on
         draw_circle(obs(1),obs(2),r);
@@ -14,7 +14,7 @@ function plot_experiment(x_rec, u_rec, u0_rec, func_dict, K_pows, C)
         N = ceil(x(3)/am/Ts);
         xx = zeros(N,4);
         for j=1:N
-            xx(j,:)=(C*K_pows{j}*d)';
+            xx(j,:)=(CK_pows{j}*d)';
         end
         for j = 1:N
             plot(xx(j,1),xx(j,2),'b*');

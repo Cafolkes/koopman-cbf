@@ -12,7 +12,7 @@ function plot_training_fit(X, K_pows, C, func_dict, error_bound)
         X_hat{i} = x_hat';
     end
         
-    fig = figure(1);
+    fig = figure(2);
     set(groot,'defaulttextinterpreter','latex');  
     set(groot, 'defaultAxesTickLabelInterpreter','latex');  
     set(groot, 'defaultLegendInterpreter','latex');
