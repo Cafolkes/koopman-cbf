@@ -1,8 +1,14 @@
 function u = koopman_qp_cbf_obs(x, u0, N, system_dynamics, backup_dynamics, barrier_func_obs, alpha, func_dict, CK_pows, options,u_lim,n,m)
+    CK_flat = cell2mat(CK_pows')
+    tic
+    %xx = zeros(N,n);
     [d,J] = func_dict(x);
-    xx = CK_pows*d;
-    QQ = CK_pows*J;
-    
+    for k=1:N
+        %xx(k,:)=(CK_pows{k}*d)';
+        QQ(n*(k-1)+1:n*k,:)=CK_pows{k}*J;
+    end
+    xx = CK_flat*d;
+    toc
     Aineq = [];
     bineq = [];
     
@@ -10,7 +16,8 @@ function u = koopman_qp_cbf_obs(x, u0, N, system_dynamics, backup_dynamics, barr
     [f,g] = system_dynamics(x);
     
     for k = 1:N
-        x_1 = reshape(xx((k-1)*n+1:k*n),n,1);
+        %x_1 = reshape(xx(k,:),n,1);
+        x_1 = reshape(xx(),n,1);
 
         b = barrier_func_obs(x_1);
         qq = QQ(n*(k-1)+1:n*k,:);

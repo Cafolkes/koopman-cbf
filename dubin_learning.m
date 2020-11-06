@@ -33,8 +33,8 @@ initial_condition = @() x_bdry(:,1)+...
 %dubin_dictionary;                                  % Generate dictionary for Dubin's car system
 func_dict = @(x) dubin_D(x(1),x(2),x(3),x(4));      % Function dictionary, returns [D,J] = [dictionary, jacobian of dictionary]
 n_samples = 100;                                    % Number of initial conditions to sample for training
-gather_data = true;
-tune_fit = true;
+gather_data = false;
+tune_fit = false;
 fname = 'dubin';
 
 %Collision avoidance experiment parameters:
@@ -68,7 +68,7 @@ if tune_fit == true
     save(['data/' fname 'lambda_tuned.mat'], 'lambda_tuned');
 else
     load(['data/' fname 'lambda_tuned.mat']);
-    [K, obj_vals, ~] = edmd(Z, Z_p, 'lasso', true, lambda_tuned, false, 0);
+    [K, obj_vals, ~] = edmd(Z, Z_p, 'gurobi', true, lambda_tuned, false, 0);
 end
 K = [zeros(1,size(Z,1)); K];
 K = K + eye(size(K,1));
@@ -92,10 +92,11 @@ plot_test_fit(X_train, X_test, K_pows, C, func_dict, error_bound);
 
 %% Evaluate Koopman based CBF safety filter:
 
-%supervisory_controller = @(x,u0,N) koopman_qp_cbf_static(x, u0, N, affine_dynamics, barrier_func, alpha, func_dict, K_pows, C, options); 
-supervisory_controller = @(x, u0, N) koopman_qp_cbf_obs(x, u0, N, affine_dynamics, backup_dynamics, barrier_func, alpha, func_dict, CK_pows, options, u_lim, 4, 2);
-[x_rec, u_rec, u0_rec] = run_experiment(x0, sim_dynamics, sim_process, legacy_controller, supervisory_controller); 
+supervisory_controller = @(x, u0, N) koopman_qp_cbf_obs(x, u0, N, affine_dynamics, backup_dynamics, barrier_func, alpha, func_dict, cell2mat(CK_pows'), options, u_lim, 4, 2);
+[x_rec, u_rec, u0_rec, comp_t_rec] = run_experiment(x0, sim_dynamics, sim_process, legacy_controller, supervisory_controller); 
 plot_experiment(x_rec, u_rec, u0_rec, func_dict, CK_pows);
+
+fprintf('\nSupervisory controller avg comp. time %.2f ms, std comp. time %2.f ms\n', mean(comp_t_rec*1e3), std(comp_t_rec*1e3))
 
 %% Save learned matrices to use in other experiments:
 %close all;
