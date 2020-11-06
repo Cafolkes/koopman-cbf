@@ -11,7 +11,7 @@ global Ts T_max vm rm am x_bdry
 Ts = 0.1;                                           % Sampling interval
 T_max = 2;
 vm = 0.15;                                          % Maximum velocity
-rm = pi;                                        % Maximum yaw rate
+rm = pi;                                            % Maximum yaw rate
 am = 0.1;                                           % Maximum acceleration
 u_lim = [-am am; -rm, rm];
 x_bdry = [-1.6 1.6;-1 1;vm vm;0 2*pi];              % State constraints
@@ -96,7 +96,17 @@ supervisory_controller = @(x, u0, N) koopman_qp_cbf_obs(x, u0, N, affine_dynamic
 [x_rec, u_rec, u0_rec, comp_t_rec] = run_experiment(x0, sim_dynamics, sim_process, legacy_controller, supervisory_controller); 
 plot_experiment(x_rec, u_rec, u0_rec, func_dict, CK_pows);
 
-fprintf('\nSupervisory controller avg comp. time %.2f ms, std comp. time %2.f ms\n', mean(comp_t_rec*1e3), std(comp_t_rec*1e3))
+fprintf('\nKoopman supervisory controller avg comp. time %.2f ms, std comp. time %2.f ms\n', mean(comp_t_rec*1e3), std(comp_t_rec*1e3))
+
+%% Evaluate integration based CBF safety filter (benchmark):
+backup_dynamics_t = @(t,x) backup_dynamics(x);
+J_cl = get_jacobian_cl(backup_dynamics, 4, 2);
+sensitivity_dynamics_sim = @(t,w) sensitivity_dynamics(w, J_cl, backup_dynamics, 4);
+supervisory_controller_int = @(x, u0, N) qp_cbf_obs(x, u0, N, affine_dynamics, backup_dynamics_t, barrier_func, alpha, sensitivity_dynamics_sim, options, u_lim, 4, 2);
+[x_rec_int, u_rec_int, u0_rec_int, comp_t_rec_int] = run_experiment(x0, sim_dynamics, sim_process, legacy_controller, supervisory_controller_int); 
+plot_experiment_int(x_rec_int, u_rec_int, u0_rec_int, backup_dynamics_t);
+
+fprintf('Integration based supervisory controller avg comp. time %.2f ms, std comp. time %2.f ms\n', mean(comp_t_rec_int*1e3), std(comp_t_rec_int*1e3))
 
 %% Save learned matrices to use in other experiments:
 %close all;
