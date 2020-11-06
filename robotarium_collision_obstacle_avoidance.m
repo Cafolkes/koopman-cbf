@@ -60,10 +60,7 @@ rm = 3*pi/2;                                            % Maximum yaw rate
 am = 0.1;                                               % Maximum acceleration
 backup_controller = @(x) [-am*sign(x(3));rm];           % Backup controller (max brake and max turn)
 backup_dynamics = @(x) cl_dynamics(x,affine_dynamics, backup_controller);
-for i = 1 : size(K_pows,2)
-    CK_pows{i} = C*K_pows{i};
-end
-supervisory_controller = @(x,u0,agent_ind) koopman_qp_cbf_multi_obs_coll(x, u0, agent_ind, N_max, affine_dynamics, backup_dynamics, barrier_func_collision, barrier_func_obstacle, alpha, N, func_dict, CK_pows, options, u_lim, 4,2);
+supervisory_controller = @(x,u0,agent_ind) koopman_qp_cbf_multi_obs_coll(x, u0, agent_ind, N_max, affine_dynamics, backup_dynamics, barrier_func_collision, barrier_func_obstacle, alpha, N, func_dict, cell2mat(CK_pows'), options, u_lim, 4,2);
                                                                         
 % Get initial location data for while loop condition.
 x=r.get_poses();
