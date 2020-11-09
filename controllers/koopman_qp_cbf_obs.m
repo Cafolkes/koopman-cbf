@@ -1,13 +1,15 @@
-function u = koopman_qp_cbf_obs(x, u0, N, system_dynamics, backup_dynamics, barrier_func_obs, alpha, func_dict, CK_pows, options,u_lim,n,m)
+function [u, int_time] = koopman_qp_cbf_obs(x, u0, N, system_dynamics, backup_dynamics, barrier_func_obs, alpha, func_dict, CK_pows, options,u_lim,n,m)
+    t0 = posixtime(datetime('now'));
     [d,J] = func_dict(x);
     xx = CK_pows*d;
     QQ = CK_pows*J;
-    
-    Aineq = [];
-    bineq = [];
+    int_time = posixtime(datetime('now')) - t0; 
     
     f_cl = backup_dynamics(x);
     [f,g] = system_dynamics(x);
+    
+    Aineq = zeros(N,m);
+    bineq = zeros(N,1);
     
     for k = 1:N
         x_1 = reshape(xx((k-1)*n+1:k*n),n,1);
@@ -17,15 +19,17 @@ function u = koopman_qp_cbf_obs(x, u0, N, system_dynamics, backup_dynamics, barr
 
         h = 1e-4;
         db = zeros(n,1);
+        
         for l = 1 : n
             x_pert = zeros(n,1);
             x_pert(l) = h;
             db(l) = (barrier_func_obs(x_1+x_pert)-b)/h;
         end
-        Aineq = [Aineq;-db'*qq*g];
-        bineq = [bineq;alpha*b+db'*qq*(f-f_cl)];
+        
+        Aineq(k,:) = -db'*qq*g;
+        bineq(k) = alpha*b+db'*qq*(f-f_cl);
     end
-    
+
     if isempty(Aineq)
         u = u0;
     else

@@ -1,6 +1,6 @@
-function u = qp_cbf_obs(x, u0, N, system_dynamics, backup_dynamics, barrier_func_obs, alpha, sensitivity_dynamics, options,u_lim,n,m)
+function [u, int_time] = qp_cbf_obs(x, u0, N, system_dynamics, backup_dynamics, barrier_func_obs, alpha, sensitivity_dynamics, options,u_lim,n,m)
     global Ts
-    
+    t0 = posixtime(datetime('now'));
     w0 = [x; reshape(eye(n),n*n,1)];
     if N>= 1
         [~, w] = ode45(sensitivity_dynamics, [0:Ts:Ts*N], w0);
@@ -12,6 +12,7 @@ function u = qp_cbf_obs(x, u0, N, system_dynamics, backup_dynamics, barrier_func
     for i = 1 : N
         QQ((i-1)*n+1:i*n,:) = reshape(w(i,n+1:end),n,n);
     end
+    int_time = posixtime(datetime('now')) - t0; 
     
     Aineq = [];
     bineq = [];
@@ -19,6 +20,8 @@ function u = qp_cbf_obs(x, u0, N, system_dynamics, backup_dynamics, barrier_func
     f_cl = backup_dynamics(0, x);
     [f,g] = system_dynamics(x);
     
+    Aineq = zeros(N,m);
+    bineq = zeros(N,1);
     for k = 1:N
         x_1 = reshape(xx(k,:),n,1);
 
@@ -32,8 +35,8 @@ function u = qp_cbf_obs(x, u0, N, system_dynamics, backup_dynamics, barrier_func
             x_pert(l) = h;
             db(l) = (barrier_func_obs(x_1+x_pert)-b)/h;
         end
-        Aineq = [Aineq;-db'*qq*g];
-        bineq = [bineq;alpha*b+db'*qq*(f-f_cl)];
+        Aineq(k,:) = -db'*qq*g;
+        bineq(k) = alpha*b+db'*qq*(f-f_cl);
     end
     
     if isempty(Aineq)

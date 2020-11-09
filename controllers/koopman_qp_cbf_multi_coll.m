@@ -1,11 +1,13 @@
-function u = koopman_qp_cbf_multi_coll(x, u0, agent_ind, N, system_dynamics, backup_dynamics, barrier_func_collision, alpha, n_agents, func_dict, CK_pows, options,u_lim,n,m)
+function [u, int_time] = koopman_qp_cbf_multi_coll(x, u0, agent_ind, N, system_dynamics, backup_dynamics, barrier_func_collision, alpha, n_agents, func_dict, CK_pows, options,u_lim,n,m)
     assert(size(x,2)==n_agents,'Number of agents misspesified');
     
     xx = zeros(n_agents,N*n);    
     for i = 1 : n_agents
+        t0 = posixtime(datetime('now'));
         [d,J] = func_dict(x(:,i));
         xx(i,:) = CK_pows*d;
         QQ{i} = CK_pows*J;
+        int_time = posixtime(datetime('now')) - t0; 
     end
     
     Aineq = [];

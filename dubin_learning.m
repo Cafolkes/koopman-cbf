@@ -2,7 +2,7 @@
 % Written by Yuxiao Chen and Carl Folkestad
 % California Institute of Technology, 2020
 
-clc; clear; clf; close all; addpath('controllers','dynamics','koopman_learning','utils','~/Documents/MATLAB/casadi-osx-matlabR2015a-v3.5.5/')
+clc; clear; clf; close all; addpath('controllers','dynamics','koopman_learning','utils','~/Documents/MATLAB/casadi-osx-matlabR2015a-v3.5.5/', 'utils/qpOASES-3.1.0/interfaces/matlab/')
 
 %% Define experiment parameters:
 
@@ -95,20 +95,25 @@ plot_test_fit(X_train, X_test, K_pows, C, func_dict, error_bound);
 %% Evaluate Koopman based CBF safety filter:
 
 supervisory_controller = @(x, u0, N) koopman_qp_cbf_obs(x, u0, N, affine_dynamics, backup_dynamics, barrier_func, alpha, func_dict, cell2mat(CK_pows'), options, u_lim, 4, 2);
-[x_rec, u_rec, u0_rec, comp_t_rec] = run_experiment(x0, sim_dynamics, sim_process, legacy_controller, supervisory_controller); 
-plot_experiment(x_rec, u_rec, u0_rec, func_dict, CK_pows);
+[x_rec, u_rec, u0_rec, comp_t_rec, int_t_rec] = run_experiment(x0, sim_dynamics, sim_process, legacy_controller, supervisory_controller); 
+%plot_experiment(x_rec, u_rec, u0_rec, func_dict, CK_pows);
 
-fprintf('\nKoopman supervisory controller avg comp. time %.2f ms, std comp. time %.2f ms\n', mean(comp_t_rec*1e3), std(comp_t_rec*1e3))
+fprintf('\nKoopman CBF supervisory controller:\n')
+fprintf('Average computation time %.2f ms, std computation time %.2f ms\n', mean(comp_t_rec*1e3), std(comp_t_rec*1e3))
+fprintf('Average integration time %.2f ms, std computation time %.2f ms\n', mean(int_t_rec*1e3), std(int_t_rec*1e3))
 
 %% Evaluate integration based CBF safety filter with ODE45 (benchmark):
 backup_dynamics_t = @(t,x) backup_dynamics(x);
 J_cl = get_jacobian_cl(backup_dynamics, 4, 2);
 sensitivity_dynamics_sim = @(t,w) sensitivity_dynamics(w, J_cl, backup_dynamics, 4);
 supervisory_controller_int = @(x, u0, N) qp_cbf_obs(x, u0, N, affine_dynamics, backup_dynamics_t, barrier_func, alpha, sensitivity_dynamics_sim, options, u_lim, 4, 2);
-[x_rec_int, u_rec_int, u0_rec_int, comp_t_rec_int] = run_experiment(x0, sim_dynamics, sim_process, legacy_controller, supervisory_controller_int); 
-plot_experiment_int(x_rec_int, u_rec_int, u0_rec_int, backup_dynamics_t);
+[x_rec_ode45, u_rec_ode45, u0_rec_ode45, comp_t_rec_ode45, int_t_rec_ode45] = run_experiment(x0, sim_dynamics, sim_process, legacy_controller, supervisory_controller_int); 
+%plot_experiment_int(x_rec_int, u_rec_int, u0_rec_int, backup_dynamics_t);
 
-fprintf('Integration based supervisory controller avg comp. time %.2f ms, std comp. time %.2f ms\n', mean(comp_t_rec_int*1e3), std(comp_t_rec_int*1e3))
+fprintf('\nIntegration based CBF supervisory controller (ODE45):\n')
+fprintf('Average computation time %.2f ms, std computation time %.2f ms\n', mean(comp_t_rec_ode45*1e3), std(comp_t_rec_ode45*1e3))
+fprintf('Average integration time %.2f ms, std computation time %.2f ms\n', mean(int_t_rec_ode45*1e3), std(int_t_rec_ode45*1e3))
+
 
 %% Evaluate integration based CBF safety filter with casadi (benchmark):
 import casadi.*
@@ -127,10 +132,13 @@ ode.ode = rhs;
 F = integrator('F', 'rk', ode, struct('grid', [0:Ts:N_max*Ts]));
 
 supervisory_controller_cas = @(x, u0, N) qp_cbf_obs_cas(x, u0, N, affine_dynamics, backup_dynamics_t, barrier_func, alpha, F, options, u_lim, 4, 2);
-[x_rec_int, u_rec_int, u0_rec_int, comp_t_rec_int] = run_experiment(x0, sim_dynamics, sim_process, legacy_controller, supervisory_controller_cas); 
-plot_experiment_int(x_rec_int, u_rec_int, u0_rec_int, backup_dynamics_t);
+[x_rec_cas, u_rec_cas, u0_rec_cas, comp_t_rec_cas, int_t_rec_cas] = run_experiment(x0, sim_dynamics, sim_process, legacy_controller, supervisory_controller_cas); 
+%plot_experiment_int(x_rec_int, u_rec_int, u0_rec_int, backup_dynamics_t);
 
-fprintf('Integration based supervisory controller avg comp. time %.2f ms, std comp. time %.2f ms\n', mean(comp_t_rec_int*1e3), std(comp_t_rec_int*1e3))
+fprintf('\nIntegration based CBF supervisory controller (casADi):\n')
+fprintf('Average computation time %.2f ms, std computation time %.2f ms\n', mean(comp_t_rec_cas*1e3), std(comp_t_rec_cas*1e3))
+fprintf('Average integration time %.2f ms, std computation time %.2f ms\n', mean(int_t_rec_cas*1e3), std(int_t_rec_cas*1e3))
+
 
 %% Save learned matrices to use in other experiments:
 %close all;
