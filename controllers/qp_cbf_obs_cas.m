@@ -1,30 +1,17 @@
-function u = qp_cbf_obs(x, u0, N, system_dynamics, backup_dynamics, barrier_func_obs, alpha, sensitivity_dynamics, options,u_lim,n,m)
-    global Ts
-    
+function u = qp_cbf_obs_cas(x, u0, N, system_dynamics, backup_dynamics, barrier_func_obs, alpha, casadi_F, options, u_lim, n, m)
     w0 = [x; reshape(eye(n),n*n,1)];
     if N>= 1
-        [~, w] = ode45(sensitivity_dynamics, [0:Ts:Ts*N], w0);
+        res = casadi_F('x0', w0);
+        w = full(res.xf);
     else
         w = w0;
     end
-    xx = w(1:N,1:n);
+    xx = w(1:n,1:N)';
     QQ = zeros(N*n,n);
     for i = 1 : N
-        QQ((i-1)*n+1:i*n,:) = reshape(w(i,n+1:end),n,n);
+        QQ((i-1)*n+1:i*n,:) = reshape(w(n+1:end,i),n,n);
     end
-    
-    xx = zeros(N, n);
-    QQ = zeros(N*n,n);
-    xx(1,:) = x;
-    QQ(1:n,:) = eye(n);
-    w0 = [x; reshape(eye(n),n*n,1)];
-    for i = 2:N
-        res = casadi_F('x0', w0);
-        w0 = full(res.xf);
-        xx(i,:) = w0(1:n);
-        QQ((i-1)*n+1:i*n,:) = reshape(w0(n+1:end),n,n);
-    end  
-    
+     
     Aineq = [];
     bineq = [];
     

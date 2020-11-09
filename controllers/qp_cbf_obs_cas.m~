@@ -1,23 +1,27 @@
-function u = koopman_qp_cbf_obs(x, u0, N, system_dynamics, backup_dynamics, barrier_func_obs, alpha, func_dict, CK_pows, options,u_lim,n,m)
-    CK_flat = cell2mat(CK_pows')
-    tic
-    %xx = zeros(N,n);
-    [d,J] = func_dict(x);
-    for k=1:N
-        %xx(k,:)=(CK_pows{k}*d)';
-        QQ(n*(k-1)+1:n*k,:)=CK_pows{k}*J;
+function u = qp_cbf_obs_cas(x, u0, N, system_dynamics, backup_dynamics, barrier_func_obs, alpha, casadi_F, options, u_lim, n, m)
+    import casadi.*
+    global Ts
+    
+    w0 = [x; reshape(eye(n),n*n,1)];
+    if N>= 1
+        res = casadi_F('x0', w0);
+    else
+        w = w0;
     end
-    xx = CK_flat*d;
-    toc
+    xx = w(1:N,1:n);
+    QQ = zeros(N*n,n);
+    for i = 1 : N
+        QQ((i-1)*n+1:i*n,:) = reshape(w(i,n+1:end),n,n);
+    end
+    
     Aineq = [];
     bineq = [];
     
-    f_cl = backup_dynamics(x);
+    f_cl = backup_dynamics(0, x);
     [f,g] = system_dynamics(x);
     
     for k = 1:N
-        %x_1 = reshape(xx(k,:),n,1);
-        x_1 = reshape(xx(),n,1);
+        x_1 = reshape(xx(k,:),n,1);
 
         b = barrier_func_obs(x_1);
         qq = QQ(n*(k-1)+1:n*k,:);

@@ -2,7 +2,7 @@
 % Written by Yuxiao Chen and Carl Folkestad
 % California Institute of Technology, 2020
 
-clc; clear; clf; close all; addpath('controllers','dynamics','koopman_learning','utils','utils/qpOASES-3.1.0/interfaces/matlab')
+clc; clear; clf; close all; addpath('controllers','dynamics','koopman_learning','utils','~/Documents/MATLAB/casadi-osx-matlabR2015a-v3.5.5/')
 
 %% Define experiment parameters:
 
@@ -17,6 +17,8 @@ u_lim = [-am am; -rm, rm];
 x_bdry = [-1.6 1.6;-1 1;vm vm;0 2*pi];              % State constraints
 ts = 0.02;
 N_max = ceil(vm/am/Ts)+1;                           % Maximum backup controller horizon
+n = 4;
+m = 2;
 
 affine_dynamics = @(x) dubin(x);                    % System dynamics, returns [f,g] with x_dot = f(x) + g(x)u
                                                     % State is defined as x = [X,Y,v,theta], u = [a,r]
@@ -96,9 +98,9 @@ supervisory_controller = @(x, u0, N) koopman_qp_cbf_obs(x, u0, N, affine_dynamic
 [x_rec, u_rec, u0_rec, comp_t_rec] = run_experiment(x0, sim_dynamics, sim_process, legacy_controller, supervisory_controller); 
 plot_experiment(x_rec, u_rec, u0_rec, func_dict, CK_pows);
 
-fprintf('\nKoopman supervisory controller avg comp. time %.2f ms, std comp. time %2.f ms\n', mean(comp_t_rec*1e3), std(comp_t_rec*1e3))
+fprintf('\nKoopman supervisory controller avg comp. time %.2f ms, std comp. time %.2f ms\n', mean(comp_t_rec*1e3), std(comp_t_rec*1e3))
 
-%% Evaluate integration based CBF safety filter (benchmark):
+%% Evaluate integration based CBF safety filter with ODE45 (benchmark):
 backup_dynamics_t = @(t,x) backup_dynamics(x);
 J_cl = get_jacobian_cl(backup_dynamics, 4, 2);
 sensitivity_dynamics_sim = @(t,w) sensitivity_dynamics(w, J_cl, backup_dynamics, 4);
@@ -106,7 +108,29 @@ supervisory_controller_int = @(x, u0, N) qp_cbf_obs(x, u0, N, affine_dynamics, b
 [x_rec_int, u_rec_int, u0_rec_int, comp_t_rec_int] = run_experiment(x0, sim_dynamics, sim_process, legacy_controller, supervisory_controller_int); 
 plot_experiment_int(x_rec_int, u_rec_int, u0_rec_int, backup_dynamics_t);
 
-fprintf('Integration based supervisory controller avg comp. time %.2f ms, std comp. time %2.f ms\n', mean(comp_t_rec_int*1e3), std(comp_t_rec_int*1e3))
+fprintf('Integration based supervisory controller avg comp. time %.2f ms, std comp. time %.2f ms\n', mean(comp_t_rec_int*1e3), std(comp_t_rec_int*1e3))
+
+%% Evaluate integration based CBF safety filter with casadi (benchmark):
+import casadi.*
+backup_dynamics_t = @(t,x) backup_dynamics(x);
+
+x = MX.sym('x', n);
+q = MX.sym('q', n^2);
+w = [x; q];
+f_cl = backup_dynamics(x);
+J_sym = jacobian(f_cl, x);
+
+rhs = sensitivity_dynamics_casadi(w, J_sym, f_cl, n);
+ode = struct;
+ode.x = w;
+ode.ode = rhs;
+F = integrator('F', 'rk', ode, struct('grid', [0:Ts:N_max*Ts]));
+
+supervisory_controller_cas = @(x, u0, N) qp_cbf_obs_cas(x, u0, N, affine_dynamics, backup_dynamics_t, barrier_func, alpha, F, options, u_lim, 4, 2);
+[x_rec_int, u_rec_int, u0_rec_int, comp_t_rec_int] = run_experiment(x0, sim_dynamics, sim_process, legacy_controller, supervisory_controller_cas); 
+plot_experiment_int(x_rec_int, u_rec_int, u0_rec_int, backup_dynamics_t);
+
+fprintf('Integration based supervisory controller avg comp. time %.2f ms, std comp. time %.2f ms\n', mean(comp_t_rec_int*1e3), std(comp_t_rec_int*1e3))
 
 %% Save learned matrices to use in other experiments:
 %close all;
