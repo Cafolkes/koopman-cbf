@@ -36,10 +36,10 @@ affine_dynamics = @(x) UAVDynamics_eul(x);                  % System dynamics, r
 backup_controller = @(x) backupU_eul(x,M);                  % Backup controller (go to hover)
 controller_process = @(u) min(max(real(u),V_min*ones(4,1)),V_max*ones(4,1));
 stop_crit1 = @(t,x)(norm(x(7:12))<=5e-2 || x(3) <= z_land);               % Stop if velocity is zero
-sim_dynamics = @(x,u) sim_uav_dynamics(x,u,config,false,true);     % Closed loop dynamics under backup controller
+sim_dynamics = @(x,u) sim_uav_dynamics(x,u,config,false,false);     % Closed loop dynamics under backup controller
 sim_process = @(x,ts) x;                                % Processing of state data while simulating
 initial_condition = @() generate_initial_state_uav(false);
-fname = 'uav_ge';
+fname = 'uav';
 
 %Koopman learning parameters:
 n = 16;
@@ -47,8 +47,8 @@ func_dict = @(x) uav_D_eul_ge(x(1),x(2),x(3),x(4),x(5),x(6),x(7),x(8),x(9),x(10)
          x(11),x(12),x(13),x(14),x(15),x(16));         % Function dictionary, returns [D,J] = [dictionary, jacobian of dictionary]
 
 n_samples = 250;                                         % Number of initial conditions to sample for training
-gather_data = false;
-tune_fit = false;
+gather_data = true;
+tune_fit = true;
 
 %% Learn approximated discrete-time Koopman operator:
 
@@ -65,22 +65,21 @@ else
     load(['data/' fname '_train_data.mat']);
 end
 
-%[Z, Z_p] = lift_data(X_train,func_dict,A_nom);
 [Z, Z_p] = lift_data(X_train,func_dict);
-
+Z_p = Z_p - Z;
 Z_p = Z_p(5:end,:);
 if tune_fit == true
     [K, obj_vals, lambda_tuned] = edmd(Z, Z_p, 'lasso', true, [],true, 5);
-    save(['data/' fname 'lambda_tuned.mat'], 'lambda_tuned');
+    save(['data/' fname '_lambda_tuned.mat'], 'lambda_tuned');
 else
-    load(['data/' fname 'lambda_tuned.mat']);
+    load(['data/' fname '_lambda_tuned.mat']);
     [K, obj_vals, ~] = edmd(Z, Z_p, 'lasso', true, lambda_tuned,false, 0);
+    %[K, obj_vals, ~] = edmd(Z, Z_p, 'gurobi', true, lambda_tuned, false, 0);
 end
 %%
 K = [zeros(4,size(Z,1)); K];
-K(1,1) = 1;
+K = K + eye(size(K,1));
 for i = 1 : 3
-    K(i+1,i+1) = 1;
     K(i+1,i+7) = Ts;
 end
 
