@@ -1,4 +1,4 @@
-
+% % 
 addpath('../uav_sim_ros/codegen/','../uav_sim_ros/codegen/dynamics/','dynamics', 'controllers','koopman_learning','utils','utils/qpOASES-3.1.0/interfaces/matlab/', '~/Documents/MATLAB/casadi-osx-matlabR2015a-v3.5.5/', 'utils/qpOASES-3.1.0/interfaces/matlab/')
 file_name = 'data/uav_collision_avoidance_eul.mat';               % File to save data matrices
 N = 2;
@@ -62,15 +62,15 @@ fprintf('Average computation time %.2f ms, std computation time %.2f ms\n', mean
 fprintf('Average integration time %.2f ms, std computation time %.2f ms\n', mean(int_t_rec*1e3), std(int_t_rec*1e3))
 
 %% Evaluate integration based CBF safety filter with ODE45 (benchmark):
-J_cl = @(x) matDFcl_eul(x,M_backup);
-sensitivity_dynamics_sim = @(t,w) sensitivity_dynamics(w, J_cl, backup_dynamics, n);
-supervisory_controller_ode45 = @(x, u0, agent_ind) qp_cbf_multi_coll(x, u0, agent_ind, N_max, affine_dynamics, backup_dynamics, barrier_func, alpha, N, sensitivity_dynamics_sim, options, u_lim, n, m);
-
-[tt_ode45, X_ode45, U_ode45, comp_t_rec_ode45, int_t_rec_ode45] = simulate_sys(x0, xf, sim_dynamics, sim_process, legacy_controller, controller_process, supervisory_controller_ode45, stop_crit, ts, maxPosErr);
-
-fprintf('\nIntegration based CBF supervisory controller (ODE45):\n')
-fprintf('Average computation time %.2f ms, std computation time %.2f ms\n', mean(comp_t_rec_ode45*1e3), std(comp_t_rec_ode45*1e3))
-fprintf('Average integration time %.2f ms, std computation time %.2f ms\n', mean(int_t_rec_ode45*1e3), std(int_t_rec_ode45*1e3))
+% J_cl = @(x) matDFcl_eul(x,M_backup);
+% sensitivity_dynamics_sim = @(t,w) sensitivity_dynamics(w, J_cl, backup_dynamics, n);
+% supervisory_controller_ode45 = @(x, u0, agent_ind) qp_cbf_multi_coll(x, u0, agent_ind, N_max, affine_dynamics, backup_dynamics, barrier_func, alpha, N, sensitivity_dynamics_sim, options, u_lim, n, m);
+% 
+% [tt_ode45, X_ode45, U_ode45, comp_t_rec_ode45, int_t_rec_ode45] = simulate_sys(x0, xf, sim_dynamics, sim_process, legacy_controller, controller_process, supervisory_controller_ode45, stop_crit, ts, maxPosErr);
+% 
+% fprintf('\nIntegration based CBF supervisory controller (ODE45):\n')
+% fprintf('Average computation time %.2f ms, std computation time %.2f ms\n', mean(comp_t_rec_ode45*1e3), std(comp_t_rec_ode45*1e3))
+% fprintf('Average integration time %.2f ms, std computation time %.2f ms\n', mean(int_t_rec_ode45*1e3), std(int_t_rec_ode45*1e3))
 
 %% Evaluate integration based CBF safety filter with casadi (benchmark):
 import casadi.*

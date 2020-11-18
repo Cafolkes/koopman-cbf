@@ -2,7 +2,7 @@
 % Written by Yuxiao Chen and Carl Folkestad
 % California Institute of Technology, 2020
 
-clc; clear; clf; close all; addpath('controllers','dynamics','koopman_learning','utils','~/Documents/MATLAB/casadi-osx-matlabR2015a-v3.5.5/', 'utils/qpOASES-3.1.0/interfaces/matlab/')
+clc; clear; clf; close all; addpath('controllers','dynamics','koopman_learning','utils','~/Documents/MATLAB/casadi-osx-matlabR2015a-v3.5.5/', 'utils/qpOASES-3.1.0/interfaces/matlab/', '~/Documents/MATLAB/Intlab_V12/')
 
 %% Define experiment parameters:
 
@@ -22,21 +22,21 @@ m = 2;
 
 affine_dynamics = @(x) dubin(x);                    % System dynamics, returns [f,g] with x_dot = f(x) + g(x)u
                                                     % State is defined as x = [X,Y,v,theta], u = [a,r]
-backup_controller = @(x) [-am*sign(x(3));rm];       % Backup controller (max brake and max turn rate)
+%backup_controller = @(x) [-am*sign(x(3)); rm];       % Backup controller (max brake and max turn rate)
+backup_controller = @(x) [-am*sign(x(3)); x(3)*rm/vm];       % Backup controller (max brake and max turn rate)
 backup_dynamics = @(x) cl_dynamics(x, affine_dynamics, backup_controller);
 controller_process = @(u) u;
 stop_crit1 = @(t,x)(abs(x(3))<=0);                  % Stop if velocity is zero
 sim_dynamics = @(x,u) dubin_sim(x,u);               % System dynamics used for simulation
 sim_process = @(x,ts) dubin_sim_process(x,ts);      % Processing of states while simulating
-initial_condition = @() x_bdry(:,1)+...
+initial_condition = @() x_bdry(:,1)+ ...
     (x_bdry(:,2)-x_bdry(:,1)).*rand(4,1);           % Sample random initial value of x inside x_bdry
 
 %Koopman learning parameters:
-%dubin_dictionary;                                  % Generate dictionary for Dubin's car system
+dubin_dictionary(true);                             % Generate dictionary for Dubin's car system
 func_dict = @(x) dubin_D(x(1),x(2),x(3),x(4));      % Function dictionary, returns [D,J] = [dictionary, jacobian of dictionary]
-n_samples = 100;                                    % Number of initial conditions to sample for training
-gather_data = false;
-tune_fit = false;
+n_samples = 200;                                    % Number of initial conditions to sample for training
+gather_data = true;
 fname = 'dubin';
 
 %Collision avoidance experiment parameters:
@@ -55,65 +55,101 @@ barrier_func = @(x) round_obs(x,obs,r);             % Barrier function
 %% Learn approximated discrete-time Koopman operator:
 if gather_data == true
     [T_train, X_train] = collect_data(sim_dynamics, sim_process, backup_controller, controller_process, stop_crit1, initial_condition, n_samples, ts); 
-    plot_training_data(X_train,n_samples)
+    plot_training_data(X_train, n_samples)
 
     save(['data/' fname '_train_data.mat'], 'T_train','X_train');
 else
     load(['data/' fname '_train_data.mat']);
 end
 
-[Z, Z_p] = lift_data(X_train, func_dict);
+[Z, Z_p] = lift_data(X_train, func_dict, false, true);
 Z_p = Z_p - Z;
-Z_p = Z_p(2:end,:);
-if tune_fit == true
-    [K, obj_vals, lambda_tuned] = edmd(Z, Z_p, 'lasso', true, [], true, 5);
-    save(['data/' fname 'lambda_tuned.mat'], 'lambda_tuned');
-else
-    load(['data/' fname 'lambda_tuned.mat']);
-    [K, obj_vals, ~] = edmd(Z, Z_p, 'gurobi', true, lambda_tuned, false, 0);
-end
-K = [zeros(1,size(Z,1)); K];
+
+[K, obj_vals, ~] = edmd(Z, Z_p, 'gurobi', true, 1e-3, 1e-3, true, false, 0);
+[~,~,C] = func_dict(X_train{1}(1,:));
+
+K(1,:) = zeros(1,size(K,2)); % Override constant term learning
 K = K + eye(size(K,1));
 
-%% Prepare necessary matrices and calculate error bounds:
-[~,~,C] = func_dict(X_train{1}(1,:));
-[K_pows, CK_pows] = precalc_matrix_powers(N_max,K,C);
+%% Train Koopman operator for error bound estimation:
 
-%L = calc_lipschitz(4,2, affine_dynamics, con1); 
-L = 0;  
+[Z_bound, Z_p_bound] = lift_data(X_train, func_dict, true, true);
+Z_p_bound = Z_p_bound-Z_bound;
+
+[K_bound, obj_vals, ~] = edmd(Z_bound, Z_p_bound, 'gurobi', true, 1e-3, 1e-3, false, false, 0);
+K_bound(1,:) = zeros(1,size(Z_bound,1)); % Override constant term learning
+K_bound = K_bound + eye(size(K_bound,1));
+
+eig_max = abs(max(eig(K_bound)));
+mu_area = (x_bdry(3,2)-0)*(x_bdry(4,2)-x_bdry(4,1));
+mu_min = sqrt(2*mu_area/(n_samples*N_max));
+    
+%% Prepare necessary matrices and calculate error bounds:
+[K_pows, CK_pows] = precalc_matrix_powers(N_max,K,C);
+[K_pows_bound, ~] = precalc_matrix_powers(N_max,K_bound,C);
+
+L_f = calc_lipschitz(4, backup_dynamics);
+L_f = 1;
+func_dict = @(x) func_dict(x);
+n_lift = length(func_dict(ones(4,1)));
+L_phi = calc_lipschitz(n_lift, func_dict);
+
 e_max = calc_max_residual(X_train, func_dict, K, C);
 tt = 0:Ts:Ts*N_max;
-error_bound = @(x) koopman_error_bound(x,X_train,L,e_max,tt,K_pows,C,func_dict);
+error_bound_0 = @(x) koopman_error_bound(x,X_train,L_f, L_phi,e_max,tt,K_pows_bound,C,func_dict,0);
+%error_bound_1 = @(x) koopman_error_bound(x,X_train,L_f, L_phi,e_max,tt,K_pows_bound,C,func_dict,1);
+error_bound_1 = @(x) koopman_error_bound_mu(mu_min,L_f, L_phi,e_max,tt,K_pows_bound,C(1:2,:),func_dict,1);
+error_bound_2 = @(x) koopman_error_bound(x,X_train,L_f, L_phi,e_max,tt,K_pows_bound,C,func_dict,2);
+error_bound_3 = @(x) koopman_error_bound_mu(mu_min,L_f, L_phi,e_max,tt,K_pows_bound,C(1:2,:),func_dict,3);
 
-plot_training_fit(X_train, K_pows, C, func_dict, error_bound);
+error_bound = @(x) koopman_error_bound_mu(mu_min, L_f, L_phi, e_max, tt, K_pows_bound,C(1:2,:),func_dict,2);
+error_bound(zeros(4,1));
+error_bound_1(zeros(4,1));
+error_bound_3(zeros(4,1));
+
+
+plot_training_fit(X_train, K_pows, C, func_dict, error_bound_0);
+%plot_training_fit(X_train, K_pows, C, func_dict, error_bound_1);
 
 %% Evaluate Koopman approximation on test data:
 
 [T_test, X_test] = collect_data(sim_dynamics, sim_process, backup_controller, controller_process, stop_crit1, initial_condition, n_samples, ts); 
-plot_test_fit(X_train, X_test, K_pows, C, func_dict, error_bound);
+%plot_test_fit(X_train, X_test, K_pows, C, func_dict, error_bound_0);
+%plot_test_fit(X_train, X_test, K_pows, C, func_dict, error_bound_1);
+plot_test_fit(X_train, X_test, K_pows, C, func_dict, error_bound_0);
 
 %% Evaluate Koopman based CBF safety filter:
 
 supervisory_controller = @(x, u0, N) koopman_qp_cbf_obs(x, u0, N, affine_dynamics, backup_dynamics, barrier_func, alpha, func_dict, cell2mat(CK_pows'), options, u_lim, 4, 2);
 [x_rec, u_rec, u0_rec, comp_t_rec, int_t_rec] = run_experiment(x0, sim_dynamics, sim_process, legacy_controller, supervisory_controller); 
-%plot_experiment(x_rec, u_rec, u0_rec, func_dict, CK_pows);
+plot_experiment(x_rec, u_rec, u0_rec, func_dict, CK_pows);
 
 fprintf('\nKoopman CBF supervisory controller:\n')
 fprintf('Average computation time %.2f ms, std computation time %.2f ms\n', mean(comp_t_rec*1e3), std(comp_t_rec*1e3))
 fprintf('Average integration time %.2f ms, std computation time %.2f ms\n', mean(int_t_rec*1e3), std(int_t_rec*1e3))
 
+%% Evaluate robust Koopman based CBF safety filter:
+
+supervisory_controller_rob = @(x, u0, N) koopman_qp_cbf_obs_rob(x, u0, N, affine_dynamics, backup_dynamics, barrier_func, alpha, func_dict, cell2mat(CK_pows'), options, u_lim, 4, 2, error_bound_0);
+[x_rec_rob, u_rec_rob, u0_rec_rob, comp_t_rec_rob, int_t_rec_rob] = run_experiment(x0, sim_dynamics, sim_process, legacy_controller, supervisory_controller_rob); 
+%plot_experiment(x_rec_rob, u_rec_rob, u0_rec_rob, func_dict, CK_pows);
+
+fprintf('\nRobust Koopman CBF supervisory controller:\n')
+fprintf('Average computation time %.2f ms, std computation time %.2f ms\n', mean(comp_t_rec_rob*1e3), std(comp_t_rec_rob*1e3))
+fprintf('Average integration time %.2f ms, std computation time %.2f ms\n', mean(int_t_rec_rob*1e3), std(int_t_rec_rob*1e3))
+
+
 %% Evaluate integration based CBF safety filter with ODE45 (benchmark):
-backup_dynamics_t = @(t,x) backup_dynamics(x);
-J_cl = get_jacobian_cl(backup_dynamics, 4, 2);
-sensitivity_dynamics_sim = @(t,w) sensitivity_dynamics(w, J_cl, backup_dynamics, 4);
-supervisory_controller_int = @(x, u0, N) qp_cbf_obs(x, u0, N, affine_dynamics, backup_dynamics_t, barrier_func, alpha, sensitivity_dynamics_sim, options, u_lim, 4, 2);
-[x_rec_ode45, u_rec_ode45, u0_rec_ode45, comp_t_rec_ode45, int_t_rec_ode45] = run_experiment(x0, sim_dynamics, sim_process, legacy_controller, supervisory_controller_int); 
-%plot_experiment_int(x_rec_int, u_rec_int, u0_rec_int, backup_dynamics_t);
-
-fprintf('\nIntegration based CBF supervisory controller (ODE45):\n')
-fprintf('Average computation time %.2f ms, std computation time %.2f ms\n', mean(comp_t_rec_ode45*1e3), std(comp_t_rec_ode45*1e3))
-fprintf('Average integration time %.2f ms, std computation time %.2f ms\n', mean(int_t_rec_ode45*1e3), std(int_t_rec_ode45*1e3))
-
+% backup_dynamics_t = @(t,x) backup_dynamics(x);
+% J_cl = get_jacobian_cl(backup_dynamics, 4, 2);
+% sensitivity_dynamics_sim = @(t,w) sensitivity_dynamics(w, J_cl, backup_dynamics, 4);
+% supervisory_controller_int = @(x, u0, N) qp_cbf_obs(x, u0, N, affine_dynamics, backup_dynamics_t, barrier_func, alpha, sensitivity_dynamics_sim, options, u_lim, 4, 2);
+% [x_rec_ode45, u_rec_ode45, u0_rec_ode45, comp_t_rec_ode45, int_t_rec_ode45] = run_experiment(x0, sim_dynamics, sim_process, legacy_controller, supervisory_controller_int); 
+% %plot_experiment_int(x_rec_int, u_rec_int, u0_rec_int, backup_dynamics_t);
+% 
+% fprintf('\nIntegration based CBF supervisory controller (ODE45):\n')
+% fprintf('Average computation time %.2f ms, std computation time %.2f ms\n', mean(comp_t_rec_ode45*1e3), std(comp_t_rec_ode45*1e3))
+% fprintf('Average integration time %.2f ms, std computation time %.2f ms\n', mean(int_t_rec_ode45*1e3), std(int_t_rec_ode45*1e3))
 
 %% Evaluate integration based CBF safety filter with casadi (benchmark):
 import casadi.*
@@ -133,7 +169,7 @@ F = integrator('F', 'rk', ode, struct('grid', [0:Ts:N_max*Ts]));
 
 supervisory_controller_cas = @(x, u0, N) qp_cbf_obs_cas(x, u0, N, affine_dynamics, backup_dynamics_t, barrier_func, alpha, F, options, u_lim, 4, 2);
 [x_rec_cas, u_rec_cas, u0_rec_cas, comp_t_rec_cas, int_t_rec_cas] = run_experiment(x0, sim_dynamics, sim_process, legacy_controller, supervisory_controller_cas); 
-%plot_experiment_int(x_rec_int, u_rec_int, u0_rec_int, backup_dynamics_t);
+%plot_experiment_int(x_rec_cas, u_rec_cas, u0_rec_cas, backup_dynamics_t);
 
 fprintf('\nIntegration based CBF supervisory controller (casADi):\n')
 fprintf('Average computation time %.2f ms, std computation time %.2f ms\n', mean(comp_t_rec_cas*1e3), std(comp_t_rec_cas*1e3))

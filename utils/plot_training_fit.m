@@ -4,7 +4,8 @@ function plot_training_fit(X, K_pows, C, func_dict, error_bound)
     %Calculate fit:
     for i = 1 : length(X)
         x0 = X{i}(1,:);
-        [z0,~] = func_dict(x0);
+        %[z0,~] = func_dict(x0);
+        z0 = func_dict(x0);
         x_hat = [x0'];
         for j = 1 : size(X{i},1)-1
             x_hat = [x_hat C*K_pows{j}*z0];
@@ -41,7 +42,7 @@ function plot_training_fit(X, K_pows, C, func_dict, error_bound)
     subplot(1,2,2)    
     hold on
     tt = 0 : Ts : Ts*(length(X{i})-1);
-    plot(tt, bound, '--r', 'lineWidth',2)
+    %plot(tt, bound, '--r', 'lineWidth',2)
     for i = 1 : length(X_hat)
         tt = 0 : Ts : Ts*(size(X{i},1)-1);
         diff = X{i}-X_hat{i};
