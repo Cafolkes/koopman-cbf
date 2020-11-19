@@ -6,7 +6,7 @@ n = 16;
 m = 4;
 ts = 1e-3;
 global Ts 
-Ts = 3e-2;
+Ts = 1e-2;
 
 % Define system and dynamics:
 config = quad1_constants;
@@ -22,11 +22,11 @@ V_min = 0;
 u_lim = [V_min*ones(4,1) V_max*ones(4,1)];
 hoverT = 0.5126*V_max; %0.52
 Omega_hover = 497.61*ones(4,1);
-maxPosErr = 0.25;
+maxPosErr = 0.3;
 M = [Kpxy; Kpz; KpVxy; KpVz; KpAtt; KdAtt; KpOmegaz; hoverT];      % PD controller parameters
 M_backup = [KpVxy; KpVz; KpAtt; KdAtt; KpOmegaz; hoverT];      % Backup controller parameters
 
-stop_crit = @(x,x_f) norm(x(1:6,1)-x_f(1:6,1)) <= 1e-1 && norm(x(1:6,2)-x_f(1:6,2)) <= 1e-1;
+stop_crit = @(x,x_f) norm(x(1:3,1)-x_f(1:3,1)) <= 1e-1 && norm(x(1:3,2)-x_f(1:3,2)) <= 1e-1;
 legacy_controller = @(x, x_f) pdU_eul(x,x_f,M); 
 controller_process = @(u) min(max(real(u),V_min*ones(4,1)),V_max*ones(4,1));
 sim_dynamics = @(x,u) sim_uav_dynamics(x,u,config,false,false);     
@@ -42,24 +42,25 @@ xf = [xf_1 xf_2];
 % Define Koopman supervisory controller:
 koopman_file = 'data/uav_learned_koopman_eul.mat';          % File containing learned Koopman model
 r_margin = 0.15;                                            % Minimum distance between robot center points                
-alpha = 7.5;                                                % CBF strengthening term
+alpha = 1;                                                % CBF strengthening term
 
 load(koopman_file)
+%N_max = 50;
 func_dict = @(x) uav_D_eul(x(1),x(2),x(3),x(4),x(5),x(6),x(7),x(8),x(9),x(10),x(11),x(12),x(13),x(14),x(15),x(16));
 options = optimoptions('quadprog','Display','none');       % Solver options for supervisory controller
 affine_dynamics = @(x) UAVDynamics_eul(x);                  % System dynamics, returns [f,g] with x_dot = f(x) + g(x)u
                                                             % State is defined as x = [p,q,v,w,Omega], u = [V1,V2,V3,V4]
-barrier_func = @(x1,x2) collision_avoidance_3d(x1,x2,r_margin);             % Barrier function
+barrier_func = @(x1,x2) collision_avoidance_3d(x1,x2,2*r_margin);             % Barrier function
 backup_controller = @(x) backupU_eul(x,M_backup);
 backup_dynamics = @(x) cl_dynamics(x, affine_dynamics, backup_controller); 
 supervisory_controller = @(x,u0,agent_ind) koopman_qp_cbf_multi_coll(x, u0, agent_ind, N_max, affine_dynamics, backup_dynamics, barrier_func, alpha, N, func_dict, cell2mat(CK_pows'), options, u_lim,16,4);
 
 %% Run experiment with Koopman CBF safety filter:
-[tt,X,U, comp_t_rec, int_t_rec] = simulate_sys(x0,xf, sim_dynamics, sim_process, legacy_controller, controller_process, supervisory_controller, stop_crit, ts, maxPosErr);
-
-fprintf('\nKoopman CBF supervisory controller:\n')
-fprintf('Average computation time %.2f ms, std computation time %.2f ms\n', mean(comp_t_rec*1e3), std(comp_t_rec*1e3))
-fprintf('Average integration time %.2f ms, std computation time %.2f ms\n', mean(int_t_rec*1e3), std(int_t_rec*1e3))
+% [tt,X,U, comp_t_rec, int_t_rec] = simulate_sys(x0,xf, sim_dynamics, sim_process, legacy_controller, controller_process, supervisory_controller, stop_crit, ts, maxPosErr);
+% 
+% fprintf('\nKoopman CBF supervisory controller:\n')
+% fprintf('Average computation time %.2f ms, std computation time %.2f ms\n', mean(comp_t_rec*1e3), std(comp_t_rec*1e3))
+% fprintf('Average integration time %.2f ms, std computation time %.2f ms\n', mean(int_t_rec*1e3), std(int_t_rec*1e3))
 
 %% Evaluate integration based CBF safety filter with ODE45 (benchmark):
 % J_cl = @(x) matDFcl_eul(x,M_backup);
@@ -90,7 +91,6 @@ F = integrator('F', 'rk', ode, struct('grid', [0:Ts:N_max*Ts]));
 supervisory_controller_cas = @(x, u0, agent_ind) qp_cbf_multi_coll_cas(x, u0, agent_ind, N_max, affine_dynamics, backup_dynamics, barrier_func, alpha, N, F, options, u_lim, n, m);
 [tt_cas, X_cas, U_cas, comp_t_rec_cas, int_t_rec_cas] = simulate_sys(x0, xf, sim_dynamics, sim_process, legacy_controller, controller_process, supervisory_controller_cas, stop_crit, ts, maxPosErr);
 
-
 fprintf('\nIntegration based CBF supervisory controller (casADi):\n')
 fprintf('Average computation time %.2f ms, std computation time %.2f ms\n', mean(comp_t_rec_cas*1e3), std(comp_t_rec_cas*1e3))
 fprintf('Average integration time %.2f ms, std computation time %.2f ms\n', mean(int_t_rec_cas*1e3), std(int_t_rec_cas*1e3))
@@ -98,7 +98,7 @@ fprintf('Average integration time %.2f ms, std computation time %.2f ms\n', mean
 %% Plot experiment:
 %plot_uav_exp(tt,X,U,Ts,r_margin)  % Plot Koopman CBF experiment
 %plot_uav_exp(tt_ode45,X_ode45,U_ode45,Ts,r_margin)  % Plot Koopman CBF experiment
-%plot_uav_exp(tt_cas,X_cas,U_cas,Ts,r_margin)  % Plot Koopman CBF experiment
+plot_uav_exp(tt_cas,X_cas,U_cas,Ts,r_margin)  % Plot Koopman CBF experiment
 
 
 function [tt,X,U, comp_t_rec, int_t_rec] = simulate_sys(x0, xf, sim_dynamics, sim_process, controller, controller_process, supervisory_controller, stop_criterion, ts, maxPosErr)
@@ -117,20 +117,21 @@ function [tt,X,U, comp_t_rec, int_t_rec] = simulate_sys(x0, xf, sim_dynamics, si
         for i = 1 : n_agents
             p_d = (xf(1:3,i)-x(1:3,i))*maxPosErr + x(1:3,i);
             x_d = [p_d;xf(4:end,i)];
-            u = controller(x(:,i),x_d);
+            x_cur = x;
+            u = controller(x_cur(:,i),x_d);
             u = controller_process(u);
             comp_t0 = posixtime(datetime('now'));
-            [u_asif, int_time] = supervisory_controller(x,u,i);
+            [u_asif, int_time] = supervisory_controller(x_cur,u,i);
             comp_tf = posixtime(datetime('now')) - comp_t0;
             xdot = @(t,x) sim_dynamics(x,u_asif);
-            [~, x_tmp] = ode45(xdot,[t,t+ts],x(:,i));
+            [~, x_tmp] = ode45(xdot,[t,t+ts],x_cur(:,i));
             x(:,i) = x_tmp(end,:)';
             x(:,i) = sim_process(x(:,i), ts);
             X{i} = [X{i};x(:,i)'];
             U{i} = [U{i};u'];
             comp_t_rec = [comp_t_rec comp_tf];
             int_t_rec = [int_t_rec int_time];
-            %disp(x(1:3,:))
+            disp(x(1:3,:))
         end
         t = t + ts;
         tt = [tt;t];

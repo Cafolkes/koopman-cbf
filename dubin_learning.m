@@ -169,7 +169,7 @@ F = integrator('F', 'rk', ode, struct('grid', [0:Ts:N_max*Ts]));
 
 supervisory_controller_cas = @(x, u0, N) qp_cbf_obs_cas(x, u0, N, affine_dynamics, backup_dynamics_t, barrier_func, alpha, F, options, u_lim, 4, 2);
 [x_rec_cas, u_rec_cas, u0_rec_cas, comp_t_rec_cas, int_t_rec_cas] = run_experiment(x0, sim_dynamics, sim_process, legacy_controller, supervisory_controller_cas); 
-%plot_experiment_int(x_rec_cas, u_rec_cas, u0_rec_cas, backup_dynamics_t);
+plot_experiment_int(x_rec_cas, u_rec_cas, u0_rec_cas, backup_dynamics_t);
 
 fprintf('\nIntegration based CBF supervisory controller (casADi):\n')
 fprintf('Average computation time %.2f ms, std computation time %.2f ms\n', mean(comp_t_rec_cas*1e3), std(comp_t_rec_cas*1e3))

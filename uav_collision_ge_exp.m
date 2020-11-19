@@ -3,7 +3,9 @@ addpath('../uav_sim_ros/codegen/','../uav_sim_ros/codegen/dynamics/','dynamics',
 file_name = 'data/uav_collision_avoidance_eul.mat';               % File to save data matrices
 N = 3;
 ts = 1e-3;
-Ts = 4e-2;
+Ts = 2e-2;
+n = 16;
+m = 4;
 
 % Define system and dynamics:
 config = quad1_constants;
@@ -30,7 +32,7 @@ controller_process = @(u) min(max(real(u),V_min*ones(4,1)),V_max*ones(4,1));
 sim_dynamics = @(x,u) sim_uav_dynamics(x,u,config,false,true);               % Closed loop dynamics under backup controller
 sim_process = @(x,ts) x;                                                % Processing of state data while simulating
 
-r0 = 0.3; %0.2
+r0 = 0.3;
 x0_1 = [[r0*sin(0); r0*cos(0); 1]; zeros(9,1); Omega_hover];
 x0_2 = [[(r0)*sin(2*pi/3); (r0)*cos(2*pi/3); 1.3]; zeros(9,1); Omega_hover];
 x0_3 = [[(r0)*sin(4*pi/3); (r0)*cos(4*pi/3); 1.6]; zeros(9,1); Omega_hover];
@@ -53,6 +55,7 @@ fname_g_cbf = 'uav_exp_ground_cbf';
 fname_g_cbf_ge = 'uav_exp_ground_cbf_ge';
 
 load(koopman_file_ge);
+N_max = 75;
 CK_pows_ge = CK_pows; C_ge = C; K_pows_ge = K_pows; N_max_ge = N_max;
 load(koopman_file)
 func_dict = @(x) uav_D_eul(x(1),x(2),x(3),x(4),x(5),x(6),x(7),x(8),x(9),x(10),x(11),x(12),x(13),x(14),x(15),x(16));
@@ -65,23 +68,42 @@ backup_dynamics = @(x) cl_dynamics(x, affine_dynamics, backup_controller);
 
 barrier_func_coll = @(x1,x2) collision_avoidance_3d(x1,x2,2*r_margin);
 barrier_func_obs = @(x) paraboloid(x,1,z_land);                    % Barrier function ground
-supervisory_ctrl_no_g_cbf = @(x,u0,agent_ind) koopman_qp_cbf_multi_coll(x, u0, agent_ind, N_max, affine_dynamics, backup_dynamics, barrier_func_coll, alpha, N, func_dict, CK_pows, options,u_lim,16,4);
-supervisory_ctrl_g_cbf = @(x,u0,agent_ind) koopman_qp_cbf_multi_obs_coll(x, u0, agent_ind, N_max, affine_dynamics, backup_dynamics, barrier_func_coll, barrier_func_obs, alpha, N, func_dict, CK_pows, options,u_lim,16,4);
-supervisory_ctrl_g_cbf_ge = @(x,u0,agent_ind) koopman_qp_cbf_multi_obs_coll(x, u0, agent_ind, N_max, affine_dynamics, backup_dynamics, barrier_func_coll, barrier_func_obs, alpha, N, func_dict_ge, CK_pows_ge, options,u_lim,16,4);
+
+%supervisory_ctrl_no_g_cbf = @(x,u0,agent_ind) koopman_qp_cbf_multi_coll(x, u0, agent_ind, N_max, affine_dynamics, backup_dynamics, barrier_func_coll, alpha, N, func_dict, cell2mat(CK_pows'), options,u_lim,16,4);
+supervisory_ctrl_g_cbf = @(x,u0,agent_ind) koopman_qp_cbf_multi_obs_coll(x, u0, agent_ind, N_max, affine_dynamics, backup_dynamics, barrier_func_coll, barrier_func_obs, alpha, N, func_dict, cell2mat(CK_pows'), options,u_lim,16,4);
+supervisory_ctrl_g_cbf_ge = @(x,u0,agent_ind) koopman_qp_cbf_multi_obs_coll(x, u0, agent_ind, N_max, affine_dynamics, backup_dynamics, barrier_func_coll, barrier_func_obs, alpha, N, func_dict_ge, cell2mat(CK_pows_ge'), options,u_lim,16,4);
+
+%% Define supervisory controller CBF with no ground avoidance experiment (CasADi):
+import casadi.*
+
+x = MX.sym('x', n);
+q = MX.sym('q', n^2);
+w = [x; q];
+f_cl = backup_dynamics(x);
+J_sym = jacobian(f_cl, x);
+
+rhs = sensitivity_dynamics_casadi(w, J_sym, f_cl, n);
+ode = struct; 
+ode.x = w;
+ode.ode = rhs;
+F = integrator('F', 'rk', ode, struct('grid', [0:Ts:N_max*Ts]));
+
+supervisory_ctrl_no_g_cbf = @(x, u0, agent_ind) qp_cbf_multi_coll_cas(x, u0, agent_ind, N_max, affine_dynamics, backup_dynamics, barrier_func_coll, alpha, N, F, options, u_lim, n, m);
+
 
 %% Run experiments:
 run_experiments = true;
 if run_experiments == true
     % Run experiment with no ground CBF:
-    [tt_no_g_cbf,X_no_g_cbf,U_no_g_cbf] = simulate_sys(x0,xf, sim_dynamics, sim_process, legacy_controller, controller_process, supervisory_ctrl_no_g_cbf, stop_crit, ts, maxPosErr, z_land);
+    [tt_no_g_cbf,X_no_g_cbf,U_no_g_cbf] = simulate_sys(x0,xf, sim_dynamics, sim_process, legacy_controller, controller_process, supervisory_ctrl_no_g_cbf, stop_crit, ts, maxZerr, z_land);
 
     % Run experiment with ground CBF and Koopman model trained on data with no ground effect:
-    [tt_g_cbf,X_g_cbf,U_g_cbf] = simulate_sys(x0,xf, sim_dynamics, sim_process, legacy_controller, controller_process, supervisory_ctrl_g_cbf, stop_crit, ts, maxPosErr, z_land);
+    %[tt_g_cbf,X_g_cbf,U_g_cbf] = simulate_sys(x0,xf, sim_dynamics, sim_process, legacy_controller, controller_process, supervisory_ctrl_g_cbf, stop_crit, ts, maxZerr, z_land);
 
     % Run experiment with ground CBF and Koopman model trained on data with ground effect:
-    [tt_g_cbf_ge,X_g_cbf_ge,U_g_cbf_ge] = simulate_sys(x0,xf, sim_dynamics, sim_process, legacy_controller, controller_process, supervisory_ctrl_g_cbf_ge, stop_crit, ts, maxZerr, z_land);
+    %[tt_g_cbf_ge,X_g_cbf_ge,U_g_cbf_ge] = simulate_sys(x0,xf, sim_dynamics, sim_process, legacy_controller, controller_process, supervisory_ctrl_g_cbf_ge, stop_crit, ts, maxZerr, z_land);
 
-    save('data/coll_exp.mat', 'tt_no_g_cbf','X_no_g_cbf','U_no_g_cbf','tt_g_cbf','X_g_cbf','U_g_cbf','tt_g_cbf_ge','X_g_cbf_ge','U_g_cbf_ge');
+    %save('data/coll_exp.mat', 'tt_no_g_cbf','X_no_g_cbf','U_no_g_cbf','tt_g_cbf','X_g_cbf','U_g_cbf','tt_g_cbf_ge','X_g_cbf_ge','U_g_cbf_ge');
 else
     load('data/coll_exp.mat');
 end
@@ -89,8 +111,8 @@ end
 %% Plot experiment:
 
 plot_uav_exp(tt_no_g_cbf,X_no_g_cbf,U_no_g_cbf,Ts,r_margin,z_land, false,fname_no_g_cbf)
-plot_uav_exp(tt_g_cbf,X_g_cbf,U_g_cbf,Ts,r_margin,z_land,false,fname_g_cbf)
-plot_uav_exp(tt_g_cbf_ge,X_g_cbf_ge,U_g_cbf_ge,Ts,r_margin,z_land,false,fname_g_cbf_ge)
+%plot_uav_exp(tt_g_cbf,X_g_cbf,U_g_cbf,Ts,r_margin,z_land,false,fname_g_cbf)
+%plot_uav_exp(tt_g_cbf_ge,X_g_cbf_ge,U_g_cbf_ge,Ts,r_margin,z_land,false,fname_g_cbf_ge)
 
 %%
 plot_exp_summary(tt_no_g_cbf, X_no_g_cbf, U_no_g_cbf, tt_g_cbf, X_g_cbf, U_g_cbf, tt_g_cbf_ge, X_g_cbf_ge, U_g_cbf_ge,z_land, r_margin)
@@ -165,7 +187,7 @@ function plot_uav_exp(tt,X,U,Ts, r_margin, z_land, draw, fname)
             
             % Plot sphere:
             sphere_surface(j) = surf(x(1)+x_s*r_margin,x(2)+y_s*r_margin,x(3)+z_s*r_margin);
-            if dist(X{1}(i,1:3)', X{2}(i,1:3)') <= r_margin^2
+            if dist(X{1}(i,1:3)', X{2}(i,1:3)') <= (2*r_margin)^2
                  set(sphere_surface(j),'FaceColor',[1 0 0], ...
                 'FaceAlpha',0.3,'FaceLighting','gouraud','EdgeColor',[0.1 0.1 0.1])
             elseif x(3) <= z_land+0.0025
@@ -320,7 +342,7 @@ function plot_exp_summary(tt_no_g_cbf, X_no_g_cbf, U_no_g_cbf, tt_g_cbf, X_g_cbf
 
         % Plot sphere:
         sphere_surface(i) = surf(x(uav_pos_ind,1)+x_s*r_margin,x(uav_pos_ind,2)+y_s*r_margin,x(uav_pos_ind,3)+z_s*r_margin);
-        if dist(X{1}(uav_pos_ind,1:3)', X{2}(uav_pos_ind,1:3)') <= r_margin^2
+        if dist(X{1}(uav_pos_ind,1:3)', X{2}(uav_pos_ind,1:3)') <= (2*r_margin)^2
              set(sphere_surface(i),'FaceColor',[1 0 0], ...
             'FaceAlpha',0.3,'FaceLighting','gouraud','EdgeColor',[0.1 0.1 0.1])
         elseif x(uav_pos_ind,3) <= z_land+0.001
