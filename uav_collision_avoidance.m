@@ -6,7 +6,7 @@ n = 16;
 m = 4;
 ts = 1e-3;
 global Ts 
-Ts = 1e-2;
+Ts = 2e-2;
 
 % Define system and dynamics:
 config = quad1_constants;
@@ -45,7 +45,7 @@ r_margin = 0.15;                                            % Minimum distance b
 alpha = 1;                                                % CBF strengthening term
 
 load(koopman_file)
-%N_max = 50;
+N_max = 50;
 func_dict = @(x) uav_D_eul(x(1),x(2),x(3),x(4),x(5),x(6),x(7),x(8),x(9),x(10),x(11),x(12),x(13),x(14),x(15),x(16));
 options = optimoptions('quadprog','Display','none');       % Solver options for supervisory controller
 affine_dynamics = @(x) UAVDynamics_eul(x);                  % System dynamics, returns [f,g] with x_dot = f(x) + g(x)u
@@ -86,7 +86,7 @@ rhs = sensitivity_dynamics_casadi(w, J_sym, f_cl, n);
 ode = struct; 
 ode.x = w;
 ode.ode = rhs;
-F = integrator('F', 'rk', ode, struct('grid', [0:Ts:N_max*Ts]));
+F = integrator('F', 'idas', ode, struct('grid', [0:Ts:N_max*Ts], 'abstol', 1e-2, 'reltol', 1e-2));
 
 supervisory_controller_cas = @(x, u0, agent_ind) qp_cbf_multi_coll_cas(x, u0, agent_ind, N_max, affine_dynamics, backup_dynamics, barrier_func, alpha, N, F, options, u_lim, n, m);
 [tt_cas, X_cas, U_cas, comp_t_rec_cas, int_t_rec_cas] = simulate_sys(x0, xf, sim_dynamics, sim_process, legacy_controller, controller_process, supervisory_controller_cas, stop_crit, ts, maxPosErr);

@@ -145,7 +145,7 @@ fprintf('Average integration time %.2f ms, std computation time %.2f ms\n', mean
 % sensitivity_dynamics_sim = @(t,w) sensitivity_dynamics(w, J_cl, backup_dynamics, 4);
 % supervisory_controller_int = @(x, u0, N) qp_cbf_obs(x, u0, N, affine_dynamics, backup_dynamics_t, barrier_func, alpha, sensitivity_dynamics_sim, options, u_lim, 4, 2);
 % [x_rec_ode45, u_rec_ode45, u0_rec_ode45, comp_t_rec_ode45, int_t_rec_ode45] = run_experiment(x0, sim_dynamics, sim_process, legacy_controller, supervisory_controller_int); 
-% %plot_experiment_int(x_rec_int, u_rec_int, u0_rec_int, backup_dynamics_t);
+% plot_experiment_int(x_rec_int, u_rec_int, u0_rec_int, backup_dynamics_t);
 % 
 % fprintf('\nIntegration based CBF supervisory controller (ODE45):\n')
 % fprintf('Average computation time %.2f ms, std computation time %.2f ms\n', mean(comp_t_rec_ode45*1e3), std(comp_t_rec_ode45*1e3))
@@ -165,7 +165,7 @@ rhs = sensitivity_dynamics_casadi(w, J_sym, f_cl, n);
 ode = struct;
 ode.x = w;
 ode.ode = rhs;
-F = integrator('F', 'rk', ode, struct('grid', [0:Ts:N_max*Ts]));
+F = integrator('F', 'idas', ode, struct('grid', [0:Ts:N_max*Ts], 'abstol', 1e-2, 'reltol', 1e-2));
 
 supervisory_controller_cas = @(x, u0, N) qp_cbf_obs_cas(x, u0, N, affine_dynamics, backup_dynamics_t, barrier_func, alpha, F, options, u_lim, 4, 2);
 [x_rec_cas, u_rec_cas, u0_rec_cas, comp_t_rec_cas, int_t_rec_cas] = run_experiment(x0, sim_dynamics, sim_process, legacy_controller, supervisory_controller_cas); 
