@@ -23,8 +23,9 @@ m = 2;
 affine_dynamics = @(x) dubin(x);                    % System dynamics, returns [f,g] with x_dot = f(x) + g(x)u
                                                     % State is defined as x = [X,Y,v,theta], u = [a,r]
 %backup_controller = @(x) [-am*sign(x(3)); rm];       % Backup controller (max brake and max turn rate)
-backup_controller = @(x) [-am*sign(x(3)); x(3)*rm/vm];       % Backup controller (max brake and max turn rate)
-backup_dynamics = @(x) cl_dynamics(x, affine_dynamics, backup_controller);
+backup_controller = @(x) [-am*sign(x(3)); abs(x(3))*rm/vm];       % Backup controller (max brake and max turn rate)
+backup_controller_process = @(u) u;
+backup_dynamics = @(x) cl_dynamics(x, affine_dynamics, backup_controller, backup_controller_process);
 controller_process = @(u) u;
 stop_crit1 = @(t,x)(abs(x(3))<=0);                  % Stop if velocity is zero
 sim_dynamics = @(x,u) dubin_sim(x,u);               % System dynamics used for simulation
@@ -36,7 +37,7 @@ initial_condition = @() x_bdry(:,1)+ ...
 dubin_dictionary(true);                             % Generate dictionary for Dubin's car system
 func_dict = @(x) dubin_D(x(1),x(2),x(3),x(4));      % Function dictionary, returns [D,J] = [dictionary, jacobian of dictionary]
 n_samples = 200;                                    % Number of initial conditions to sample for training
-gather_data = true;
+gather_data = false;
 fname = 'dubin';
 
 %Collision avoidance experiment parameters:
@@ -140,16 +141,16 @@ fprintf('Average integration time %.2f ms, std computation time %.2f ms\n', mean
 
 
 %% Evaluate integration based CBF safety filter with ODE45 (benchmark):
-% backup_dynamics_t = @(t,x) backup_dynamics(x);
-% J_cl = get_jacobian_cl(backup_dynamics, 4, 2);
-% sensitivity_dynamics_sim = @(t,w) sensitivity_dynamics(w, J_cl, backup_dynamics, 4);
-% supervisory_controller_int = @(x, u0, N) qp_cbf_obs(x, u0, N, affine_dynamics, backup_dynamics_t, barrier_func, alpha, sensitivity_dynamics_sim, options, u_lim, 4, 2);
-% [x_rec_ode45, u_rec_ode45, u0_rec_ode45, comp_t_rec_ode45, int_t_rec_ode45] = run_experiment(x0, sim_dynamics, sim_process, legacy_controller, supervisory_controller_int); 
-% plot_experiment_int(x_rec_int, u_rec_int, u0_rec_int, backup_dynamics_t);
-% 
-% fprintf('\nIntegration based CBF supervisory controller (ODE45):\n')
-% fprintf('Average computation time %.2f ms, std computation time %.2f ms\n', mean(comp_t_rec_ode45*1e3), std(comp_t_rec_ode45*1e3))
-% fprintf('Average integration time %.2f ms, std computation time %.2f ms\n', mean(int_t_rec_ode45*1e3), std(int_t_rec_ode45*1e3))
+backup_dynamics_t = @(t,x) backup_dynamics(x);
+J_cl = get_jacobian_cl(backup_dynamics, 4, 2);
+sensitivity_dynamics_sim = @(t,w) sensitivity_dynamics(w, J_cl, backup_dynamics, 4);
+supervisory_controller_int = @(x, u0, N) qp_cbf_obs(x, u0, N, affine_dynamics, backup_dynamics_t, barrier_func, alpha, sensitivity_dynamics_sim, options, u_lim, 4, 2);
+[x_rec_ode45, u_rec_ode45, u0_rec_ode45, comp_t_rec_ode45, int_t_rec_ode45] = run_experiment(x0, sim_dynamics, sim_process, legacy_controller, supervisory_controller_int); 
+plot_experiment_int(x_rec_ode45, u_rec_ode45, u0_rec_ode45, backup_dynamics_t);
+
+fprintf('\nIntegration based CBF supervisory controller (ODE45):\n')
+fprintf('Average computation time %.2f ms, std computation time %.2f ms\n', mean(comp_t_rec_ode45*1e3), std(comp_t_rec_ode45*1e3))
+fprintf('Average integration time %.2f ms, std computation time %.2f ms\n', mean(int_t_rec_ode45*1e3), std(int_t_rec_ode45*1e3))
 
 %% Evaluate integration based CBF safety filter with casadi (benchmark):
 import casadi.*
@@ -165,7 +166,8 @@ rhs = sensitivity_dynamics_casadi(w, J_sym, f_cl, n);
 ode = struct;
 ode.x = w;
 ode.ode = rhs;
-F = integrator('F', 'idas', ode, struct('grid', [0:Ts:N_max*Ts], 'abstol', 1e-2, 'reltol', 1e-2));
+%F = integrator('F', 'idas', ode, struct('grid', [0:Ts:N_max*Ts], 'abstol', 1e-2, 'reltol', 1e-2));
+F = integrator('F', 'rk', ode, struct('grid', [0:Ts:N_max*Ts]));
 
 supervisory_controller_cas = @(x, u0, N) qp_cbf_obs_cas(x, u0, N, affine_dynamics, backup_dynamics_t, barrier_func, alpha, F, options, u_lim, 4, 2);
 [x_rec_cas, u_rec_cas, u0_rec_cas, comp_t_rec_cas, int_t_rec_cas] = run_experiment(x0, sim_dynamics, sim_process, legacy_controller, supervisory_controller_cas); 

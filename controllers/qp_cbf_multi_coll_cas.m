@@ -20,6 +20,20 @@ function [u, int_time] = qp_cbf_multi_coll_cas(x, u0, agent_ind, N, system_dynam
         int_time = posixtime(datetime('now')) - t0; 
     end
     
+%     figure(1)
+%     clf;
+%     yax = [-1 1; -1 1; -0.5 10];
+%     for i = 1 : 3
+%         subplot(1,3,i);
+%         hold on
+%         plot(xx(1,:,i));
+%         plot(xx(2,:,i));
+%         plot(xx(1,:,i+6),'--');
+%         plot(xx(2,:,i+6),'--');
+%         ylim(yax(i,:));
+%     end
+%     drawnow    
+    
     Aineq = [];
     bineq = [];
     

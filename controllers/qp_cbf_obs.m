@@ -4,10 +4,12 @@ function [u, int_time] = qp_cbf_obs(x, u0, N, system_dynamics, backup_dynamics, 
     w0 = [x; reshape(eye(n),n*n,1)];
     if N>= 1
         [~, w] = ode45(sensitivity_dynamics, [0:Ts:Ts*N], w0);
+        xx = w(1:N,1:n);
     else
-        w = w0;
+        %w = w0;
+        xx = w0';
     end
-    xx = w(1:N,1:n);
+    
     QQ = zeros(N*n,n);
     for i = 1 : N
         QQ((i-1)*n+1:i*n,:) = reshape(w(i,n+1:end),n,n);
