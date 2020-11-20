@@ -11,6 +11,25 @@ function u = koopman_qp_cbf_multi_obs_coll(x, u0, agent_ind, N, system_dynamics,
     Aineq = [];
     bineq = [];
     
+%     figure(1)
+%     clf;
+%     yax = [-1 1; -1 1; -0.5 10];
+%     xx_1 = reshape(xx(1,:),n,N);
+%     xx_2 = reshape(xx(2,:),n,N);
+%     xx_3 = reshape(xx(3,:),n,N);
+%     for i = 1 : 3
+%         subplot(1,3,i);
+%         hold on
+%         plot(xx_1(i,:));
+%         plot(xx_2(i,:));
+%         plot(xx_3(i,:));
+%         %plot(xx_1(i+6,:),'--');
+%         %plot(xx_2(i+6,:),'--');
+%         %plot(xx_3(i+6,:),'--');
+%         ylim(yax(i,:));
+%     end
+%     drawnow
+    
     f_cl = backup_dynamics(x(:,agent_ind));
     [f,g] = system_dynamics(x(:,agent_ind));
     
