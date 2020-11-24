@@ -36,10 +36,10 @@ affine_dynamics = @(x) UAVDynamics_eul(x);                  % System dynamics, r
 backup_controller = @(x) backupU_eul(x,M);                  % Backup controller (go to hover)
 controller_process = @(u) min(max(real(u),V_min*ones(4,1)),V_max*ones(4,1));
 stop_crit1 = @(t,x)(norm(x(7:12))<=5e-2 || x(3) <= z_land);               % Stop if velocity is zero
-sim_dynamics = @(x,u) sim_uav_dynamics(x,u,config,false,true);     % Closed loop dynamics under backup controller
+sim_dynamics = @(x,u) sim_uav_dynamics(x,u,config,false,false);     % Closed loop dynamics under backup controller
 sim_process = @(x,ts) x;                                % Processing of state data while simulating
 initial_condition = @() generate_initial_state_uav(false);
-fname = 'uav_ge';
+fname = 'uav';
 
 %Koopman learning parameters:
 n = 16;
@@ -48,7 +48,7 @@ func_dict = @(x) uav_D_eul_ge(x(1),x(2),x(3),x(4),x(5),x(6),x(7),x(8),x(9),x(10)
 
 n_samples = 250;                                         % Number of initial conditions to sample for training
 gather_data = false;
-tune_fit = false;
+tune_fit = true;
 
 %% Learn approximated discrete-time Koopman operator:
 
@@ -65,22 +65,21 @@ else
     load(['data/' fname '_train_data.mat']);
 end
 
-%[Z, Z_p] = lift_data(X_train,func_dict,A_nom);
-[Z, Z_p] = lift_data(X_train,func_dict);
-
+[Z, Z_p] = lift_data(X_train,func_dict,false);
+Z_p = Z_p - Z;
 Z_p = Z_p(5:end,:);
 if tune_fit == true
-    [K, obj_vals, lambda_tuned] = edmd(Z, Z_p, 'lasso', true, [],true, 5);
-    save(['data/' fname 'lambda_tuned.mat'], 'lambda_tuned');
+    [K, obj_vals, lambda_tuned] = edmd(Z, Z_p, 'lasso', true, [], [],true, tune_fit, 3);
+    save(['data/' fname '_lambda_tuned.mat'], 'lambda_tuned');
 else
-    load(['data/' fname 'lambda_tuned.mat']);
-    [K, obj_vals, ~] = edmd(Z, Z_p, 'lasso', true, lambda_tuned,false, 0);
+    load(['data/' fname '_lambda_tuned.mat']);
+    [K, obj_vals, ~] = edmd(Z, Z_p, 'lasso', true, lambda_tuned, [],true, false, 0);
+    %[K, obj_vals, ~] = edmd(Z, Z_p, 'gurobi', true, lambda_tuned, false, 0);
 end
 %%
 K = [zeros(4,size(Z,1)); K];
-K(1,1) = 1;
+K = K + eye(size(K,1));
 for i = 1 : 3
-    K(i+1,i+1) = 1;
     K(i+1,i+7) = Ts;
 end
 
@@ -90,11 +89,17 @@ end
 
 [K_pows, CK_pows] = precalc_matrix_powers(N_max,K,C);
 
-L = 0;  
-%e_max = calc_max_residual(X_train, func_dict, K, C);
+
+C_h = C(1:3,:);
+non_cycl_spc = x_bdry(7:12,2) - x_bdry(7:12,1);
+mu_min = prod(non_cycl_spc)/((n_samples/Ts)^(1/length(non_cycl_spc)));
+n_lift = length(func_dict(ones(16,1)));
+L_phi = calc_lipschitz(n_lift, func_dict);
+
+e_max = calc_max_residual(X_train, func_dict, K, C_h);
 tt = 0:Ts:Ts*N_max;
 %error_bound = @(x) koopman_error_bound(x,X_train,L,e_max,tt,K_pows,C,func_dict);
-error_bound = 0;
+error_bound = @(x) koopman_error_bound_mu(mu_min,L_f, L_phi,e_max,tt,K_pows_bound,C_h,func_dict,3);
 
 %% Evaluate Koopman approximation on training and test data:
 

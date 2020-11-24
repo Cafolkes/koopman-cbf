@@ -1,24 +1,40 @@
 function u = koopman_qp_cbf_multi_obs_coll(x, u0, agent_ind, N, system_dynamics, backup_dynamics, barrier_func_collision, barrier_func_obs, alpha, n_agents, func_dict, CK_pows, options,u_lim,n,m)
     assert(size(x,2)==n_agents,'Number of agents misspesified');
     
-    xx = zeros(n_agents,N,n);
-    
+    xx = zeros(n_agents,N*n);    
     for i = 1 : n_agents
         [d,J] = func_dict(x(:,i));
-        for k=1:N
-            xx(i,k,:)=(CK_pows{k}*d)';
-            QQ{i}(n*(k-1)+1:n*k,:)=CK_pows{k}*J;
-        end
+        xx(i,:) = CK_pows*d;
+        QQ{i} = CK_pows*J;
     end
     
     Aineq = [];
     bineq = [];
     
+%     figure(1)
+%     clf;
+%     yax = [-1 1; -1 1; -0.5 10];
+%     xx_1 = reshape(xx(1,:),n,N);
+%     xx_2 = reshape(xx(2,:),n,N);
+%     xx_3 = reshape(xx(3,:),n,N);
+%     for i = 1 : 3
+%         subplot(1,3,i);
+%         hold on
+%         plot(xx_1(i,:));
+%         plot(xx_2(i,:));
+%         plot(xx_3(i,:));
+%         %plot(xx_1(i+6,:),'--');
+%         %plot(xx_2(i+6,:),'--');
+%         %plot(xx_3(i+6,:),'--');
+%         ylim(yax(i,:));
+%     end
+%     drawnow
+    
     f_cl = backup_dynamics(x(:,agent_ind));
     [f,g] = system_dynamics(x(:,agent_ind));
     
     for k = 1:N
-        x_1 = reshape(xx(agent_ind,k,:),n,1);
+        x_1 = reshape(xx(agent_ind,(k-1)*n+1:k*n),n,1);
 
         b = barrier_func_obs(x_1);
         qq = QQ{agent_ind}(n*(k-1)+1:n*k,:);
@@ -39,8 +55,8 @@ function u = koopman_qp_cbf_multi_obs_coll(x, u0, agent_ind, N, system_dynamics,
         end
 
         for k = 1:N
-            x_1 = reshape(xx(agent_ind,k,:),n,1);
-            x_2 = reshape(xx(j,k,:),n,1);
+            x_1 = reshape(xx(agent_ind,(k-1)*n+1:k*n),n,1);
+            x_2 = reshape(xx(j,(k-1)*n+1:k*n),n,1);
 
             b = barrier_func_collision(x_1, x_2);
             if b<1

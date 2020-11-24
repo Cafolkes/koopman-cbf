@@ -13,7 +13,7 @@ start_angles = linspace(0,2*pi-(2*pi/N),N);         % Angle of ray where each ro
 end_angles = wrapTo2Pi(start_angles + pi);          % Angle of ray where each robot has final position
 koopman_file = 'data/dubin_learned_koopman.mat';         % File containing learned Koopman model
 r_margin = 0.08;                                    % Minimum distance between robot center points                
-alpha = 1;                                          % CBF strengthening term
+alpha = 1.1;                                          % CBF strengthening term
 obs = [0;0];                                        % Center of obstacle
 r_circ = 0.2;                                       % Radius of obstacle (- r_margin)
 
@@ -25,7 +25,6 @@ for i = 1 : N
     x_init_data{i} = [];                                 % Store initial point
     x_final_data{i} = [];                                % Store final point
 end
-
 
 % Generate intial and final positions:
 initial_positions = zeros(n,N);
@@ -56,13 +55,10 @@ barrier_func_collision = @(x_1, x_2) collision_avoidance(x_1,x_2,2*r_margin);
 func_dict = @(x) dubin_D(x(1),x(2),x(3),x(4));
 rm = 3*pi/2;                                            % Maximum yaw rate
 am = 0.1;                                               % Maximum acceleration
-backup_controller = @(x) [-am*sign(x(3));rm];           % Backup controller (max brake and max turn)
-backup_dynamics = @(x) cl_dynamics(x,affine_dynamics, backup_controller);
-for i = 1 : size(K_pows,2)
-    CK_pows{i} = C*K_pows{i};
-end
-supervisory_controller = @(x,u0,agent_ind) koopman_qp_cbf_multi_coll(x, u0, agent_ind, N_max, affine_dynamics, backup_dynamics, barrier_func_collision, alpha, N, func_dict, CK_pows, options, u_lim, 4,2);
-
+backup_controller = @(x) [-am*sign(x(3)); abs(x(3))*rm/vm];       % Backup controller (max brake and max turn rate)
+backup_controller_process = @(u) u;
+backup_dynamics = @(x) cl_dynamics(x,affine_dynamics, backup_controller, backup_controller_process);
+supervisory_controller = @(x,u0,agent_ind) koopman_qp_cbf_multi_coll(x, u0, agent_ind, N_max, affine_dynamics, backup_dynamics, barrier_func_collision, alpha, N, func_dict, cell2mat(CK_pows'), options, u_lim, 4,2);
 
 % Get initial location data for while loop condition.
 x=r.get_poses();

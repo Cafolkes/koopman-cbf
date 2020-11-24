@@ -4,7 +4,8 @@ function plot_training_fit(X, K_pows, C, func_dict, error_bound)
     %Calculate fit:
     for i = 1 : length(X)
         x0 = X{i}(1,:);
-        [z0,~] = func_dict(x0);
+        %[z0,~] = func_dict(x0);
+        z0 = func_dict(x0);
         x_hat = [x0'];
         for j = 1 : size(X{i},1)-1
             x_hat = [x_hat C*K_pows{j}*z0];
@@ -12,7 +13,7 @@ function plot_training_fit(X, K_pows, C, func_dict, error_bound)
         X_hat{i} = x_hat';
     end
         
-    fig = figure(1);
+    fig = figure(2);
     set(groot,'defaulttextinterpreter','latex');  
     set(groot, 'defaultAxesTickLabelInterpreter','latex');  
     set(groot, 'defaultLegendInterpreter','latex');
