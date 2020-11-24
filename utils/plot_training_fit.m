@@ -42,7 +42,7 @@ function plot_training_fit(X, K_pows, C, func_dict, error_bound)
     subplot(1,2,2)    
     hold on
     tt = 0 : Ts : Ts*(length(X{i})-1);
-    %plot(tt, bound, '--r', 'lineWidth',2)
+    plot(tt, bound, '--r', 'lineWidth',2)
     for i = 1 : length(X_hat)
         tt = 0 : Ts : Ts*(size(X{i},1)-1);
         diff = X{i}-X_hat{i};

@@ -26,7 +26,7 @@ function f_g = ground_effect_force(r,v,q,w,Omega,R,d,D,k_f,k_t,use_quat,K_b,nois
       K_b = 1;
   end
   if nargin < 13
-      noise = 0.05;
+      noise = 0.02;
   end
   z = r(3);
   den = 1-(R/(4*z))^2 - R^2*(z/sqrt((d^2+4*z^2)^3)) - (R^2/2)*(z/sqrt((2*d^2+4*z^2)^3)) - 2*R^2*(z/sqrt((D^2+4*z^2)^3))*K_b;

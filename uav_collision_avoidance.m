@@ -138,7 +138,6 @@ function [tt,X,U, comp_t_rec, int_t_rec] = simulate_sys(x0, xf, sim_dynamics, si
             U{i} = [U{i};u'];
             comp_t_rec = [comp_t_rec comp_tf];
             int_t_rec = [int_t_rec int_time];
-            %disp(x(1:3,:))
         end
         t = t + ts;
         tt = [tt;t];

@@ -47,7 +47,7 @@ func_dict = @(x) uav_D_eul_ge(x(1),x(2),x(3),x(4),x(5),x(6),x(7),x(8),x(9),x(10)
          x(11),x(12),x(13),x(14),x(15),x(16));         % Function dictionary, returns [D,J] = [dictionary, jacobian of dictionary]
 
 n_samples = 250;                                         % Number of initial conditions to sample for training
-gather_data = true;
+gather_data = false;
 tune_fit = true;
 
 %% Learn approximated discrete-time Koopman operator:
@@ -65,15 +65,15 @@ else
     load(['data/' fname '_train_data.mat']);
 end
 
-[Z, Z_p] = lift_data(X_train,func_dict);
+[Z, Z_p] = lift_data(X_train,func_dict,false);
 Z_p = Z_p - Z;
 Z_p = Z_p(5:end,:);
 if tune_fit == true
-    [K, obj_vals, lambda_tuned] = edmd(Z, Z_p, 'lasso', true, [],true, 5);
+    [K, obj_vals, lambda_tuned] = edmd(Z, Z_p, 'lasso', true, [], [],true, tune_fit, 3);
     save(['data/' fname '_lambda_tuned.mat'], 'lambda_tuned');
 else
     load(['data/' fname '_lambda_tuned.mat']);
-    [K, obj_vals, ~] = edmd(Z, Z_p, 'lasso', true, lambda_tuned,false, 0);
+    [K, obj_vals, ~] = edmd(Z, Z_p, 'lasso', true, lambda_tuned, [],true, false, 0);
     %[K, obj_vals, ~] = edmd(Z, Z_p, 'gurobi', true, lambda_tuned, false, 0);
 end
 %%
@@ -89,11 +89,17 @@ end
 
 [K_pows, CK_pows] = precalc_matrix_powers(N_max,K,C);
 
-L = 0;  
-%e_max = calc_max_residual(X_train, func_dict, K, C);
+
+C_h = C(1:3,:);
+non_cycl_spc = x_bdry(7:12,2) - x_bdry(7:12,1);
+mu_min = prod(non_cycl_spc)/((n_samples/Ts)^(1/length(non_cycl_spc)));
+n_lift = length(func_dict(ones(16,1)));
+L_phi = calc_lipschitz(n_lift, func_dict);
+
+e_max = calc_max_residual(X_train, func_dict, K, C_h);
 tt = 0:Ts:Ts*N_max;
 %error_bound = @(x) koopman_error_bound(x,X_train,L,e_max,tt,K_pows,C,func_dict);
-error_bound = 0;
+error_bound = @(x) koopman_error_bound_mu(mu_min,L_f, L_phi,e_max,tt,K_pows_bound,C_h,func_dict,3);
 
 %% Evaluate Koopman approximation on training and test data:
 

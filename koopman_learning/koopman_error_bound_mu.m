@@ -1,11 +1,9 @@
-function err_bnd = koopman_error_bound_mu(mu,L_f, L_phi,e_max,tt,K_pows,C,func_dict, bound_type)
-    %Bound type: 0 -> local error, 1 -> global error, old, 2 -> global
-    %error, modified
+function err_bnd = koopman_error_bound_mu(mu,L,e_max,tt,K_pows,C,func_dict, bound_type)
+    
     global Ts;
     
     p=2;    
     CA_norm = 0;
-    
     
     err_bnd = {};
     for k = 1:length(tt)-1
@@ -14,16 +12,7 @@ function err_bnd = koopman_error_bound_mu(mu,L_f, L_phi,e_max,tt,K_pows,C,func_d
             case 0
                 err_bnd{k} = norm(e_max,p)*CA_norm;
             case 1
-                %err_bnd{k} = norm(C*K_pows{k}*mu,p) + norm(e_max,p)*CA_norm + norm(mu,p);
-                err_bnd{k} = norm(C*K_pows{k}*mu,p) + norm(e_max,p)*CA_norm;
-            case 2
-                A_hat = K_pows{1}-eye(size(K_pows{1},1));
-                %eps_max = L_f*Ts*mu + e_max + L_phi*norm(C*A_hat,p)*mu;
-                eps_max = e_max + L_phi*norm(C*A_hat,p)*mu;
-                err_bnd{k} = eps_max*CA_norm;
-            case 3
-                %err_bnd{k} = norm(C*K_pows{k}*mu,p) + norm(e_max,p)*CA_norm + norm(mu,p);
-                err_bnd{k} = norm(C*(K_pows{k}-eye(size(K_pows{1},1)))*mu, p) + norm(e_max,p)*CA_norm;
+                err_bnd{k} = norm(C*K_pows{k},p)*L*mu + norm(e_max,p)*CA_norm + mu;
         end
                 
     end 
