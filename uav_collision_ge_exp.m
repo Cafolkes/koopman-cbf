@@ -1,5 +1,5 @@
 
-addpath('../uav_sim_ros/codegen/','../uav_sim_ros/codegen/dynamics/','dynamics', 'controllers','koopman_learning','utils','utils/qpOASES-3.1.0/interfaces/matlab/')
+addpath('dynamics', 'controllers','koopman_learning','utils','utils/qpOASES-3.1.0/interfaces/matlab/')
 file_name = 'data/uav_collision_avoidance_eul.mat';               % File to save data matrices
 N = 3;
 ts = 5e-3;
